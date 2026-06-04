@@ -155,7 +155,7 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
             id="post-form-submit-btn"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>{isSubmitting ? '저장중...' : postToEdit ? '수정 완료' : '발행하기'}</span>
+            <span>{isSubmitting ? '저장중...' : postToEdit ? '수정 완료' : '게시하기'}</span>
           </button>
         </div>
       </form>

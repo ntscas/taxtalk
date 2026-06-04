@@ -34,8 +34,12 @@ export default function UserProfile({ currentUser, onProfileUpdated }: UserProfi
 
   // Stats
   const [userPostsCount, setUserPostsCount] = useState(0);
+  const [isRealDb, setIsRealDb] = useState(isSupabaseConfigured);
 
   useEffect(() => {
+    dbService.checkConfig().then((val) => {
+      setIsRealDb(val);
+    });
     loadProfileAndStats();
   }, [currentUser.id]);
 
@@ -169,7 +173,7 @@ export default function UserProfile({ currentUser, onProfileUpdated }: UserProfi
             <div className="flex items-center justify-between">
               <span className="font-extrabold text-[10px] text-brand-muted uppercase">인증 데이터베이스</span>
               <span className="font-mono text-[10px] font-bold text-brand-primary">
-                {isSupabaseConfigured ? 'Supabase cloud' : 'LocalStorage cache'}
+                {isRealDb ? 'Supabase cloud' : 'LocalStorage cache'}
               </span>
             </div>
 
@@ -181,7 +185,7 @@ export default function UserProfile({ currentUser, onProfileUpdated }: UserProfi
             <div className="flex items-center justify-between">
               <span className="font-extrabold text-[10px] text-brand-muted uppercase">가입 상태 및 권한</span>
               <span className="font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md text-[10px]">
-                {isSupabaseConfigured ? '실시간 연동 완료' : '임시 가상 회원'}
+                {isRealDb ? '실시간 연동 완료' : '임시 가상 회원'}
               </span>
             </div>
 

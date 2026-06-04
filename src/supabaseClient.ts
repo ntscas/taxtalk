@@ -3,22 +3,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { Post, Comment, UserProfile, AuthUser } from './types';
 
-// Environment variables checks
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+function cleanEnvValue(val: string | undefined): string {
+  if (!val) return '';
+  let cleaned = val.trim();
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  return cleaned.trim();
+}
 
-export const isSupabaseConfigured = 
+function cleanSupabaseUrl(url: string): string {
+  if (!url) return '';
+  const cleaned = cleanEnvValue(url);
+  // If the user entered the browser dashboard URL by mistake
+  if (cleaned.includes('supabase.com/dashboard/project/')) {
+    const parts = cleaned.split('supabase.com/dashboard/project/');
+    if (parts.length > 1) {
+      const ref = parts[1].split('/')[0].trim();
+      if (ref) return `https://${ref}.supabase.co`;
+    }
+  }
+  return cleaned;
+}
+
+// Environment variables checks to determine if we should use Cloud DB or Local fallback
+const supabaseUrlRaw = (import.meta as any).env.VITE_SUPABASE_URL || '';
+export const supabaseUrl = cleanSupabaseUrl(supabaseUrlRaw);
+const supabaseAnonKey = cleanEnvValue((import.meta as any).env.VITE_SUPABASE_ANON_KEY || '');
+
+export let isSupabaseConfigured = 
   supabaseUrl.trim() !== '' && 
   supabaseAnonKey.trim() !== '' && 
   !supabaseUrl.includes('YOUR_SUPABASE') &&
   !supabaseAnonKey.includes('YOUR_SUPABASE');
 
-export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey) 
-  : null;
+let configCheckPromise: Promise<boolean> | null = null;
+
+// Export dummy supabase for compatibility if needed, though direct client calls are bypassed
+export const supabase = null;
 
 // Helper to manage LocalStorage database fallback
 const LOCAL_STORAGE_KEY = 'supabase_board_fallback_db';
@@ -104,7 +131,67 @@ function saveLocalDB(db: LocalDB) {
 // Global active auth listener
 let authListeners: ((user: AuthUser | null) => void)[] = [];
 
+// Clean, lightweight HTTP client for Server-Side proxy communication
+async function apiFetch(url: string, options: RequestInit = {}) {
+  const token = localStorage.getItem('supabase_access_token');
+  const headers = new Headers(options.headers || {});
+  
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const errData = await response.json();
+      if (errData && errData.error) {
+        errorMessage = errData.error;
+      }
+    } catch (_) {}
+
+    if (response.status === 401 || response.status === 403 || errorMessage === 'Unauthorized user action') {
+      localStorage.removeItem('supabase_access_token');
+      // Force all subscription listeners to flush user state to null
+      authListeners.forEach(listener => listener(null));
+      throw new Error('로그인 세션이 만료되거나 인증에 실패했습니다. 다시 로그인하거나 회원가입을 완료해 주세요.');
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
 export const dbService = {
+  async checkConfig(): Promise<boolean> {
+    if (configCheckPromise) {
+      return configCheckPromise;
+    }
+    configCheckPromise = (async () => {
+      try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+          const data = await response.json();
+          isSupabaseConfigured = !!data.isSupabaseConfigured;
+          console.log('Runtime Supabase config sync from server:', isSupabaseConfigured);
+          return isSupabaseConfigured;
+        }
+      } catch (e) {
+        console.warn('Could not fetch server config, using build-time fallback:', e);
+      }
+      return isSupabaseConfigured;
+    })();
+    return configCheckPromise;
+  },
+
   subscribeAuth(callback: (user: AuthUser | null) => void) {
     authListeners.push(callback);
     // Initial fetch
@@ -121,51 +208,28 @@ export const dbService = {
   },
 
   async signUp(email: string, password: string, name: string, bio: string = '', avatarUrl: string = '') {
-    if (isSupabaseConfigured && supabase) {
+    await this.checkConfig();
+    if (isSupabaseConfigured) {
       try {
-        // Step 1: Sign up in Supabase
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: name
-            }
-          }
+        const responseData = await apiFetch('/api/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({ email, password, name, bio, avatarUrl })
         });
-        if (error) throw error;
-        if (!data.user) throw new Error('회원가입에 실패했습니다.');
 
-        const userId = data.user.id;
-
-        // Step 2: Insert into public.tax_profiles
-        // Standard user flows create this, but let's upsert manually to ensure success
-        const { error: profileError } = await supabase
-          .from('tax_profiles')
-          .upsert({
-            id: userId,
-            name: name,
-            bio: bio,
-            avatar_url: avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(name)}`,
-            updated_at: new Date().toISOString()
-          });
-
-        if (profileError) {
-          console.warn('프로필 자동 생성 실패(SQL 트리거 미설정 등):', profileError.message);
+        if (responseData.session && responseData.session.access_token) {
+          localStorage.setItem('supabase_access_token', responseData.session.access_token);
         }
 
-        const authUser: AuthUser = { id: userId, email, name };
+        const authUser: AuthUser = responseData.user;
         this.notifyAuthChange(authUser);
         return { success: true, user: authUser };
       } catch (err: any) {
-        // Fallback to local on DB structure / service error if they configured wrong DB
-        console.error('Supabase SignUp Error:', err);
+        console.error('Proxy Client SignUp Error:', err);
         return { success: false, error: err.message || '회원가입 중 오류가 발생했습니다.' };
       }
     } else {
       // Local Database Flow
       const db = getLocalDB();
-      // Check duplicate
       const exists = Object.values(db.users).some(u => u.email.toLowerCase() === email.toLowerCase());
       if (exists) {
         return { success: false, error: '이미 사용중인 이메일입니다.' };
@@ -192,35 +256,23 @@ export const dbService = {
   },
 
   async signIn(email: string, password: string) {
-    if (isSupabaseConfigured && supabase) {
+    await this.checkConfig();
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
+        const responseData = await apiFetch('/api/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
         });
-        if (error) throw error;
-        if (!data.user) throw new Error('로그인에 실패했습니다.');
 
-        // Get metadata name or active profile
-        let name = data.user.user_metadata?.full_name || email.split('@')[0];
-        
-        // Let's try to query profile name
-        try {
-          const { data: profile } = await supabase
-            .from('tax_profiles')
-            .select('name')
-            .eq('id', data.user.id)
-            .single();
-          if (profile && profile.name) {
-            name = profile.name;
-          }
-        } catch (_) {}
+        if (responseData.session && responseData.session.access_token) {
+          localStorage.setItem('supabase_access_token', responseData.session.access_token);
+        }
 
-        const authUser: AuthUser = { id: data.user.id, email, name };
+        const authUser: AuthUser = responseData.user;
         this.notifyAuthChange(authUser);
         return { success: true, user: authUser };
       } catch (err: any) {
-        console.error('Supabase Login Error:', err);
+        console.error('Proxy Client Login Error:', err);
         return { success: false, error: err.message || '이메일 또는 비밀번호가 올바르지 않습니다.' };
       }
     } else {
@@ -244,8 +296,12 @@ export const dbService = {
   },
 
   async signOut() {
-    if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      try {
+        localStorage.removeItem('supabase_access_token');
+      } catch (e) {
+        console.warn('Error clearing token:', e);
+      }
     } else {
       const db = getLocalDB();
       db.currentUser = null;
@@ -255,19 +311,17 @@ export const dbService = {
   },
 
   async getCurrentUser(): Promise<AuthUser | null> {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-        
-        let name = user.user_metadata?.full_name || user.email?.split('@')[0] || '';
-        try {
-          const { data: p } = await supabase.from('tax_profiles').select('name').eq('id', user.id).single();
-          if (p?.name) name = p.name;
-        } catch (_) {}
+    await this.checkConfig();
+    if (isSupabaseConfigured) {
+      const token = localStorage.getItem('supabase_access_token');
+      if (!token) return null;
 
-        return { id: user.id, email: user.email || '', name };
+      try {
+        const user = await apiFetch('/api/auth/me');
+        return user;
       } catch (e) {
+        // Token has expired or is invalid
+        localStorage.removeItem('supabase_access_token');
         return null;
       }
     } else {
@@ -276,30 +330,12 @@ export const dbService = {
   },
 
   async getProfile(userId: string): Promise<UserProfile | null> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('tax_profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        if (error) {
-          // If profile doesn't exist, create default
-          if (error.code === 'PGRST116') {
-            const defaultProfile: UserProfile = {
-              id: userId,
-              name: '사용자',
-              bio: '',
-              avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${userId}`,
-              updated_at: new Date().toISOString()
-            };
-            return defaultProfile;
-          }
-          throw error;
-        }
+        const data = await apiFetch(`/api/profiles/${userId}`);
         return data as UserProfile;
       } catch (err) {
-        console.error('Error fetching profile from Supabase:', err);
+        console.error('Proxy Client fetch profile error:', err);
         return null;
       }
     } else {
@@ -309,19 +345,15 @@ export const dbService = {
   },
 
   async updateProfile(userId: string, profileData: Partial<UserProfile>) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase
-          .from('tax_profiles')
-          .upsert({
-            id: userId,
-            ...profileData,
-            updated_at: new Date().toISOString()
-          });
-        if (error) throw error;
+        await apiFetch(`/api/profiles/${userId}`, {
+          method: 'PUT',
+          body: JSON.stringify(profileData)
+        });
         return { success: true };
       } catch (err: any) {
-        console.error('Error updating profile in Supabase:', err);
+        console.error('Proxy Client update profile error:', err);
         return { success: false, error: err.message };
       }
     } else {
@@ -371,41 +403,13 @@ export const dbService = {
   },
 
   async getPosts(): Promise<Post[]> {
-    if (isSupabaseConfigured && supabase) {
+    await this.checkConfig();
+    if (isSupabaseConfigured) {
       try {
-        // Query posts table and map profile info or do inner join if supported
-        // But to make it secure and resilient, we query and map profiles manually or do a join
-        const { data, error } = await supabase
-          .from('tax_posts')
-          .select(`
-            id,
-            title,
-            content,
-            author_id,
-            created_at,
-            views,
-            profiles:tax_profiles(name, avatar_url)
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        return (data || []).map((item: any) => {
-          const profile = item.profiles || item.tax_profiles;
-          return {
-            id: item.id,
-            title: item.title,
-            content: item.content,
-            author_id: item.author_id,
-            author_name: (Array.isArray(profile) ? profile[0]?.name : profile?.name) || '알 수 없음',
-            author_avatar: (Array.isArray(profile) ? profile[0]?.avatar_url : profile?.avatar_url) || '',
-            created_at: item.created_at,
-            views: item.views || 0
-          };
-        });
+        const posts = await apiFetch('/api/posts');
+        return posts;
       } catch (err) {
-        console.error('Error fetching posts from Supabase:', err);
-        // Fall back to local posts to avoid blank screens if table not ready
+        console.error('Proxy Client fetch posts error:', err);
         return getLocalDB().posts;
       }
     } else {
@@ -414,16 +418,13 @@ export const dbService = {
   },
 
   async incrementViews(postId: string) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        // Increment view count in Supabase
-        // Utilizing supabase rpc or simple update (though update is less race-safe, it works without custom functions)
-        const { data: post } = await supabase.from('tax_posts').select('views').eq('id', postId).single();
-        if (post) {
-          await supabase.from('tax_posts').update({ views: (post.views || 0) + 1 }).eq('id', postId);
-        }
+        await apiFetch(`/api/posts/${postId}/view`, {
+          method: 'POST'
+        });
       } catch (e) {
-        console.warn('Could not increment views in Supabase:', e);
+        console.warn('Proxy Client increment views warning:', e);
       }
     } else {
       const db = getLocalDB();
@@ -433,38 +434,15 @@ export const dbService = {
   },
 
   async createPost(title: string, content: string, userId: string): Promise<{ success: boolean; data?: Post; error?: string }> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('tax_posts')
-          .insert({
-            title,
-            content,
-            author_id: userId,
-            created_at: new Date().toISOString(),
-            views: 0
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Fetch author profiles
-        const profile = await this.getProfile(userId);
-        const newPost: Post = {
-          id: data.id,
-          title: data.title,
-          content: data.content,
-          author_id: data.author_id,
-          author_name: profile?.name || '알 수 없음',
-          author_avatar: profile?.avatar_url || '',
-          created_at: data.created_at,
-          views: 0
-        };
-
-        return { success: true, data: newPost };
+        const responseData = await apiFetch('/api/posts', {
+          method: 'POST',
+          body: JSON.stringify({ title, content, userId })
+        });
+        return { success: true, data: responseData.data };
       } catch (err: any) {
-        console.error('Error creating post in Supabase:', err);
+        console.error('Proxy Client create post error:', err);
         return { success: false, error: err.message };
       }
     } else {
@@ -489,16 +467,15 @@ export const dbService = {
   },
 
   async updatePost(id: string, title: string, content: string) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase
-          .from('tax_posts')
-          .update({ title, content })
-          .eq('id', id);
-        if (error) throw error;
+        await apiFetch(`/api/posts/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ title, content })
+        });
         return { success: true };
       } catch (err: any) {
-        console.error('Error updating post in Supabase:', err);
+        console.error('Proxy Client update post error:', err);
         return { success: false, error: err.message };
       }
     } else {
@@ -510,16 +487,14 @@ export const dbService = {
   },
 
   async deletePost(id: string) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase
-          .from('tax_posts')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
+        await apiFetch(`/api/posts/${id}`, {
+          method: 'DELETE'
+        });
         return { success: true };
       } catch (err: any) {
-        console.error('Error deleting post in Supabase:', err);
+        console.error('Proxy Client delete post error:', err);
         return { success: false, error: err.message };
       }
     } else {
@@ -532,37 +507,12 @@ export const dbService = {
   },
 
   async getComments(postId: string): Promise<Comment[]> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('tax_comments')
-          .select(`
-            id,
-            post_id,
-            author_id,
-            content,
-            created_at,
-            profiles:tax_profiles(name, avatar_url)
-          `)
-          .eq('post_id', postId)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        return (data || []).map((item: any) => {
-          const profile = item.profiles || item.tax_profiles;
-          return {
-            id: item.id,
-            post_id: item.post_id,
-            author_id: item.author_id,
-            author_name: (Array.isArray(profile) ? profile[0]?.name : profile?.name) || '알 수 없음',
-            author_avatar: (Array.isArray(profile) ? profile[0]?.avatar_url : profile?.avatar_url) || '',
-            content: item.content,
-            created_at: item.created_at
-          };
-        });
+        const comments = await apiFetch(`/api/posts/${postId}/comments`);
+        return comments;
       } catch (err) {
-        console.error('Error fetching comments from Supabase:', err);
+        console.error('Proxy Client fetch comments error:', err);
         return getLocalDB().comments.filter(c => c.post_id === postId);
       }
     } else {
@@ -573,35 +523,15 @@ export const dbService = {
   },
 
   async createComment(postId: string, content: string, userId: string): Promise<{ success: boolean; data?: Comment; error?: string }> {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase
-          .from('tax_comments')
-          .insert({
-            post_id: postId,
-            content,
-            author_id: userId,
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        const profile = await this.getProfile(userId);
-        const newComment: Comment = {
-          id: data.id,
-          post_id: data.post_id,
-          author_id: data.author_id,
-          author_name: profile?.name || '알 수 없음',
-          author_avatar: profile?.avatar_url || '',
-          content: data.content,
-          created_at: data.created_at
-        };
-
-        return { success: true, data: newComment };
+        const responseData = await apiFetch(`/api/posts/${postId}/comments`, {
+          method: 'POST',
+          body: JSON.stringify({ content, userId })
+        });
+        return { success: true, data: responseData.data };
       } catch (err: any) {
-        console.error('Error creating comment in Supabase:', err);
+        console.error('Proxy Client create comment error:', err);
         return { success: false, error: err.message };
       }
     } else {
@@ -625,16 +555,14 @@ export const dbService = {
   },
 
   async deleteComment(id: string) {
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase
-          .from('tax_comments')
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
+        await apiFetch(`/api/comments/${id}`, {
+          method: 'DELETE'
+        });
         return { success: true };
       } catch (err: any) {
-        console.error('Error deleting comment in Supabase:', err);
+        console.error('Proxy Client delete comment error:', err);
         return { success: false, error: err.message };
       }
     } else {

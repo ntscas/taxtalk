@@ -456,7 +456,7 @@ export default function App() {
                       ) : (
                         <div className="bg-brand-card p-8 rounded-3xl text-center max-w-md mx-auto space-y-4 border border-brand-border">
                           <LogIn className="w-10 h-10 text-brand-primary mx-auto" />
-                          <p className="text-sm font-semibold text-brand-text">새 포스팅을 발행하려면 로그인이 필요합니다.</p>
+                          <p className="text-sm font-semibold text-brand-text">새 포스팅을 게시하려면 로그인이 필요합니다.</p>
                           <button
                             onClick={() => setActiveTab('profile')}
                             className="px-6 py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-brand-card font-bold text-xs rounded-xl cursor-pointer"
@@ -494,7 +494,7 @@ export default function App() {
                         <Bookmark className="w-12 h-12 text-brand-muted/70 mb-4 animate-bounce" />
                         <h2 className="text-lg font-bold text-brand-text font-serif">열람할 내용이 없습니다</h2>
                         <p className="text-xs text-brand-muted mt-1.5 max-w-xs mx-auto">
-                          좌측 목록에서 포스팅을 하나 클릭하시거나 새 이야기를 발행해 보세요!
+                          좌측 목록에서 포스팅을 하나 클릭하시거나 새 이야기를 게시해 보세요!
                         </p>
                       </div>
                     )}

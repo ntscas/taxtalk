@@ -109,11 +109,25 @@ export default function AuthScreen({ onSuccess }: AuthScreenProps) {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="flex items-start gap-2.5 p-3.5 bg-red-50 text-red-700 rounded-xl text-xs border border-red-100"
+                className="flex flex-col gap-2 p-4 bg-red-50 text-red-700 rounded-2xl text-xs border border-red-100"
                 id="auth-error-banner"
               >
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="leading-relaxed font-semibold">{error}</span>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed font-black text-red-800">
+                    {error === 'Failed to fetch' ? '네트워크 통신 오류 (Failed to fetch)' : error}
+                  </span>
+                </div>
+                {error === 'Failed to fetch' && (
+                  <div className="bg-white p-3 rounded-xl border border-red-100/60 text-[11px] text-slate-700 space-y-1.5 mt-1 font-medium leading-normal">
+                    <p className="font-bold text-red-600">💡 대표적인 발생 원인 및 해결 방법:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong>크롬 광고 차단기 확장프로그램 차단</strong>: 유블럭(uBlock Origin), 애드블록(AdBlock), 브레이브 브라우저의 실드(Brave Shield) 기능등이 `*.supabase.co` 도메인을 차단하는 경우가 가장 많습니다. <strong>[광고 차단기 오프]</strong> 후 새로고침해 보세요.</li>
+                      <li><strong>Supabase 프로젝트 미활성</strong>: 새로 만드신 Supabase 프로젝트가 아직 미서동 상태이거나 일시적 통신 지연 상태일 수 있습니다.</li>
+                      <li><strong>회사/사내 보안망 방화벽</strong>: 외부 API 통신 제한 규칙으로 인해 차단될 수 있습니다. (스마트폰 핫스팟/일반 망에서 테스트 권장)</li>
+                    </ul>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

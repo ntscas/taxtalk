@@ -3,11 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Copy, Check, Terminal, ExternalLink, Database, LifeBuoy } from 'lucide-react';
+import { dbService, isSupabaseConfigured } from '../supabaseClient';
 
 export default function ConfigGuide() {
   const [copied, setCopied] = useState(false);
+  const [isRealDb, setIsRealDb] = useState(isSupabaseConfigured);
+
+  useEffect(() => {
+    dbService.checkConfig().then((val) => {
+      setIsRealDb(val);
+    });
+  }, []);
 
   const sqlCode = `-- 1. 사용자 프로필 테이블 생성 (public schema)
 create table public.tax_profiles (
@@ -23,7 +31,7 @@ create table public.tax_posts (
   id uuid default gen_random_uuid() primary key,
   title text not null,
   content text not null,
-  author_id uuid references auth.users(id) on delete cascade not null,
+  author_id uuid references public.tax_profiles(id) on delete cascade not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   views int default 0 not null
 );
@@ -32,7 +40,7 @@ create table public.tax_posts (
 create table public.tax_comments (
   id uuid default gen_random_uuid() primary key,
   post_id uuid references public.tax_posts(id) on delete cascade not null,
-  author_id uuid references auth.users(id) on delete cascade not null,
+  author_id uuid references public.tax_profiles(id) on delete cascade not null,
   content text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -169,10 +177,21 @@ create policy "본인 댓글만 삭제" on public.tax_comments
       </div>
 
       <div className="mt-6 pt-5 border-t border-brand-border/60 flex items-start gap-2.5 text-xs text-brand-muted-text font-semibold">
-        <LifeBuoy size={16} className="text-brand-primary shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          <strong className="text-brand-text font-serif">현재 상태:</strong> 환경변수가 아직 설정되지 않았거나 유효하지 않아 안전한 <span className="text-brand-primary font-bold underline">로컬 전용 가상 데이터베이스(LocalStorage)</span>로 활성화되었습니다. 프로필 수정, 게시물 작성 및 회원가입 테스트가 완전하게 실시간 가상으로 지원됩니다.
-        </p>
+        {isRealDb ? (
+          <>
+            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shrink-0 mt-1.5" />
+            <p className="leading-relaxed">
+              <strong className="text-brand-text font-serif">현재 상태:</strong> <span className="text-emerald-600 font-bold">Supabase 실시간 클라우드 DB 연동 완료!</span> 실제 Supabase 인프라에 직접 연결되어 실시간 회원가입, 로그인, 게시글 게시 및 프로필 관리 서비스가 완벽하게 동기화되어 가동 중입니다.
+            </p>
+          </>
+        ) : (
+          <>
+            <LifeBuoy size={16} className="text-brand-primary shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              <strong className="text-brand-text font-serif">현재 상태:</strong> 환경변수가 아직 설정되지 않았거나 유효하지 않아 안전한 <span className="text-brand-primary font-bold underline">로컬 전용 가상 데이터베이스(LocalStorage)</span>로 활성화되었습니다. 프로필 수정, 게시물 작성 및 회원가입 테스트가 완전하게 실시간 가상으로 지원됩니다.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
