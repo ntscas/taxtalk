@@ -237,17 +237,6 @@ export default function App() {
                   <User className="w-4 h-4 text-slate-400" />
                   <span>내 프로필 정보</span>
                 </button>
-                <button
-                  onClick={() => { setActiveTab('guide'); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'guide' 
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-extrabold' 
-                      : 'text-slate-300 hover:bg-brand-sidebar-hover hover:text-white'
-                  }`}
-                >
-                  <Database className="w-4 h-4 text-slate-400" />
-                  <span>DB 연동 가이드</span>
-                </button>
               </nav>
             </div>
           </div>
