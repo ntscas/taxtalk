@@ -49,6 +49,29 @@ export default function App() {
   const [likesUpdateTrigger, setLikesUpdateTrigger] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Supabase dynamic setup states for runtime connectivity on GitHub Pages
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [modalUrl, setModalUrl] = useState(localStorage.getItem('custom_supabase_url') || '');
+  const [modalKey, setModalKey] = useState(localStorage.getItem('custom_supabase_anon_key') || '');
+
+  const handleSaveSupabaseConfig = () => {
+    if (modalUrl.trim() === '' || modalKey.trim() === '') {
+      alert('두 필수 입력 필드를 모두 채워주세요.');
+      return;
+    }
+    localStorage.setItem('custom_supabase_url', modalUrl.trim());
+    localStorage.setItem('custom_supabase_anon_key', modalKey.trim());
+    alert('설정이 안전하게 저장되었습니다! Supabase와 동기화하기 위해 페이지를 새로고침합니다.');
+    window.location.reload();
+  };
+
+  const handleResetSupabaseConfig = () => {
+    localStorage.removeItem('custom_supabase_url');
+    localStorage.removeItem('custom_supabase_anon_key');
+    alert('설정이 초기화되었습니다. 기본 가상 DB 모드 또는 환경변수 설정으로 돌아가기 위해 새로고침합니다.');
+    window.location.reload();
+  };
+
   // Sychronize authorization state globally
   useEffect(() => {
     const unsubscribe = dbService.subscribeAuth((user) => {
@@ -245,6 +268,27 @@ export default function App() {
         {/* Bottom Bento Box Stats */}
         <div className="space-y-4 pt-6 border-t border-[#1e293b]">
           <div>
+            <div className="px-2 mb-3.5">
+              <button
+                onClick={() => setShowSupabaseModal(true)}
+                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[10px] font-bold cursor-pointer transition-all border ${
+                  isSupabaseConfigured 
+                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 border-amber-500/15'
+                }`}
+                title="클릭하여 Supabase 연동 설정 열기"
+              >
+                <div className="flex items-center gap-2 text-left">
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isSupabaseConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isSupabaseConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                  </span>
+                  <span>{isSupabaseConfigured ? '클라우드 DB 연동 완료' : '로컬 가상 DB 작동 중'}</span>
+                </div>
+                <Database className="w-3.5 h-3.5 opacity-80 shrink-0" />
+              </button>
+            </div>
+
             <p className="text-[10px] text-brand-sidebar-muted font-extrabold uppercase tracking-widest pl-2 mb-2.5">
               Database Stat
             </p>
@@ -515,6 +559,98 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* 4. Supabase Dynamic Connection Settings Modal */}
+      <AnimatePresence>
+        {showSupabaseModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Overlay backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSupabaseModal(false)}
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs"
+            />
+            {/* Modal Box */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 md:p-8 shadow-2xl border border-slate-200 overflow-hidden text-slate-900"
+            >
+              <div className="flex items-start justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <Database className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 font-serif">Supabase 클라우드 연동 URL/Key 설정</h2>
+                    <p className="text-[10px] text-slate-500 font-medium">깃허브 페이지 호스팅 실시간 실DB 동기화</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowSupabaseModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X className="w-4.5 h-4.5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed font-serif">
+                  이 게시판은 Supabase의 실시간 클라우드 DB와 즉각 동기화되도록 완전하게 설계되었습니다.
+                  <br />
+                  깃허브 페이지 등 라이브 환경에서 실시간 클라우드 데이터베이스를 활성화하고 싶다면 아래에 Supabase URL과 Public Anon Key를 입력해 주세요. 귀하의 소중한 키 정보는 브라우저(LocalStorage)에 안전하게 소장되어 즉시 동기화가 활성화됩니다!
+                </p>
+
+                <div className="space-y-3.5 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5 pl-0.5">
+                      Supabase Project URL (API URL)
+                    </label>
+                    <input 
+                      type="text" 
+                      value={modalUrl} 
+                      onChange={(e) => setModalUrl(e.target.value)} 
+                      placeholder="예시: https://yourprojectref.supabase.co" 
+                      className="w-full text-xs px-3.5 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 text-slate-900 font-mono outline-hidden shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5 pl-0.5">
+                      Supabase Anon Key (Public API Key)
+                    </label>
+                    <textarea 
+                      rows={3}
+                      value={modalKey} 
+                      onChange={(e) => setModalKey(e.target.value)} 
+                      placeholder="예시: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+                      className="w-full text-xs px-3.5 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 text-slate-900 font-mono outline-hidden shadow-xs resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleSaveSupabaseConfig}
+                    className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-slate-950 font-black text-xs rounded-xl cursor-pointer"
+                  >
+                    연동 저장 및 즉시 새로고침
+                  </button>
+                  <button
+                    onClick={handleResetSupabaseConfig}
+                    className="py-3 px-4 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all text-slate-700 font-extrabold text-xs rounded-xl cursor-pointer"
+                  >
+                    연동 초기화
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
