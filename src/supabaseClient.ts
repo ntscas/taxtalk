@@ -27,10 +27,14 @@ function cleanSupabaseUrl(url: string): string {
   return cleaned;
 }
 
-// Environment variables checks to determine if we should use Cloud DB or Local fallback
-const supabaseUrlRaw = (import.meta as any).env.VITE_SUPABASE_URL || '';
+// Support dynamic configurations stored in LocalStorage for hosted environments like GitHub Pages!
+const customSupabaseUrl = typeof window !== 'undefined' ? (localStorage.getItem('custom_supabase_url') || '') : '';
+const customSupabaseAnonKey = typeof window !== 'undefined' ? (localStorage.getItem('custom_supabase_anon_key') || '') : '';
+
+// Environment variables checks or localStorage overrides to determine if we should use Cloud DB or Local fallback
+const supabaseUrlRaw = customSupabaseUrl || (import.meta as any).env.VITE_SUPABASE_URL || '';
 export const supabaseUrl = cleanSupabaseUrl(supabaseUrlRaw);
-const supabaseAnonKey = cleanEnvValue((import.meta as any).env.VITE_SUPABASE_ANON_KEY || '');
+const supabaseAnonKey = cleanEnvValue(customSupabaseAnonKey || (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '');
 
 export let isSupabaseConfigured = 
   supabaseUrl.trim() !== '' && 
