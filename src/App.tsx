@@ -57,6 +57,17 @@ export default function App() {
         document.referrer.includes('android-app://');
       setIsStandalone(isStandaloneMode);
       console.log('[PWA] Standalone 모드 감지:', isStandaloneMode);
+      
+      // Parse shortcut actions on startup
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      if (action === 'write') {
+        setActiveTab('board');
+        setBoardView('write');
+      } else if (action === 'board') {
+        setActiveTab('board');
+        setBoardView('list');
+      }
     }
   }, []);
 
