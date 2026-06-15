@@ -171,7 +171,11 @@ export default function App() {
       // Auto-select first post on initial load if on desktop and none selected
       if (dbPosts.length > 0 && !selectedPost) {
         setSelectedPost(dbPosts[0]);
-        setBoardView('detail');
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+          setBoardView('detail');
+        } else {
+          setBoardView('list');
+        }
       }
     } catch (e) {
       console.error(e);
@@ -202,7 +206,6 @@ export default function App() {
   const handleCategorySelect = (cat: 'All' | Category) => {
     setSelectedCategory(cat);
     setActiveTab('board');
-    setBoardView('list');
     setMobileMenuOpen(false);
     
     // Auto preview first post in this selected category on desktop
@@ -212,8 +215,14 @@ export default function App() {
       
     if (filtered.length > 0) {
       setSelectedPost(filtered[0]);
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        setBoardView('detail');
+      } else {
+        setBoardView('list');
+      }
     } else {
       setSelectedPost(null);
+      setBoardView('list');
     }
   };
 
