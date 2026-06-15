@@ -19,6 +19,7 @@ interface BoardListProps {
   fetchPosts: () => Promise<void>;
   onMenuClick?: () => void;
   onLoginClick?: () => void;
+  onInstallClick?: () => void;
 }
 
 export default function BoardList({ 
@@ -31,7 +32,8 @@ export default function BoardList({
   onWriteClick,
   fetchPosts,
   onMenuClick,
-  onLoginClick
+  onLoginClick,
+  onInstallClick
 }: BoardListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'views'>('latest');
@@ -84,6 +86,25 @@ export default function BoardList({
 
   return (
     <div className="flex flex-col h-full bg-brand-card" id="board-list-root">
+      
+      {/* Mobile Install Promotion Banner */}
+      {onInstallClick && (
+        <div className="lg:hidden bg-amber-500/10 border-b border-amber-500/15 px-4 py-2.5 flex items-center justify-between text-[11px] font-bold text-amber-600 animate-fade-in shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span>독립형 Tax Talk 앱을 설치해 보세요!</span>
+          </div>
+          <button 
+            onClick={onInstallClick}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg active:scale-95 text-[10px] font-extrabold shadow-sm cursor-pointer transition-transform"
+          >
+            앱 설치 ➔
+          </button>
+        </div>
+      )}
       
       {/* Top Search & Actions bar */}
       <div className="p-4 border-b border-brand-border space-y-3 shrink-0">
