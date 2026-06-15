@@ -45,6 +45,20 @@ export default function App() {
   
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState<boolean>(false);
+  const [showInstallModal, setShowInstallModal] = useState<boolean>(false);
+
+  // Check if already running as standalone PWA
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandaloneMode = 
+        window.matchMedia('(display-mode: standalone)').matches || 
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://');
+      setIsStandalone(isStandaloneMode);
+      console.log('[PWA] Standalone 모드 감지:', isStandaloneMode);
+    }
+  }, []);
 
   // listen for browser PWA triggers
   useEffect(() => {
@@ -59,6 +73,7 @@ export default function App() {
     const handleAppInstalled = () => {
       console.log('[PWA] 조세전문가 Tax Talk 앱이 성공적으로 설치되었습니다.');
       setDeferredPrompt(null);
+      setIsStandalone(true);
     };
 
     window.addEventListener('appinstalled', handleAppInstalled);
@@ -297,15 +312,27 @@ export default function App() {
                   <span>내 프로필 정보</span>
                 </button>
 
-                {deferredPrompt && (
-                  <button
-                    id="installBtn"
-                    onClick={handleInstallApp}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 text-amber-400 animate-bounce" />
-                    <span>조세전문가 Tax Talk 설치</span>
-                  </button>
+                {!isStandalone && (
+                  <div>
+                    {deferredPrompt ? (
+                      <button
+                        id="installBtn"
+                        onClick={handleInstallApp}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 text-amber-400 animate-bounce shrink-0" />
+                        <span>Tax Talk 앱 설치하기</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowInstallModal(true)}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Tax Talk 앱 바로 설치하기</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </nav>
             </div>
@@ -449,6 +476,7 @@ export default function App() {
               fetchPosts={fetchPosts}
               onMenuClick={() => setMobileMenuOpen(true)}
               onLoginClick={() => setActiveTab('profile')}
+              onInstallClick={!isStandalone ? () => setShowInstallModal(true) : undefined}
             />
           </section>
 
@@ -585,6 +613,84 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* Tax Talk PWA Install Guidance Modal */}
+      <AnimatePresence>
+        {showInstallModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="install-guide-backdrop">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 w-full max-w-sm border border-slate-100 shadow-2xl relative space-y-5 text-slate-800"
+            >
+              <button 
+                onClick={() => setShowInstallModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                id="btn-close-modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <Download className="w-5 h-5 text-emerald-500 animate-bounce" />
+                </div>
+                <h3 className="text-base font-black text-slate-900 font-serif">Tax Talk 앱 설치하기</h3>
+                <p className="text-[11px] text-slate-500 font-semibold whitespace-pre-line leading-relaxed">
+                  편리한 독립형 앱 모드로 설치하시면 알림 수신, 빠른 로딩 및 일반 앱처럼 홈화면에서 바로 소통하실 수 있습니다.
+                </p>
+              </div>
+
+              {/* iOS vs Android Guide Tabs */}
+              <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50 space-y-3">
+                {typeof window !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-rose-500 pb-1.5 border-b border-slate-100">
+                      <span>📱 아이폰/아이패드 (iOS Safari) 가이드</span>
+                    </div>
+                    <ol className="text-[11px] text-slate-600 space-y-2.5 list-decimal list-inside font-semibold leading-relaxed">
+                      <li>
+                        Safari 브라우저 하단의 <span className="font-bold text-emerald-600">[공유]</span> 아이콘(네모와 위 화살표 모양)을 탭합니다.
+                      </li>
+                      <li>
+                        메뉴 목록에서 아래로 스크롤하여 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span> 메뉴를 클릭합니다.
+                      </li>
+                      <li>
+                        우측 상단의 <span className="font-bold text-slate-900">[추가]</span> 버튼을 완성하시면 설치가 완전히 끝납니다!
+                      </li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-600 pb-1.5 border-b border-slate-100">
+                      <span>📱 안드로이드 / 모바일 크롬 가이드</span>
+                    </div>
+                    <ol className="text-[11px] text-slate-600 space-y-2.5 list-decimal list-inside font-semibold leading-relaxed">
+                      <li>
+                        브라우저 우측 상단 혹은 하단의 <span className="font-bold text-emerald-600">[점 3개 (더보기)]</span> 아이콘을 누릅니다.
+                      </li>
+                      <li>
+                        나타난 브라우저 옵션 메뉴 중 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[앱 설치]</span> 혹은 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span>를 선택합니다.
+                      </li>
+                      <li>
+                        설치가 완료되면 홈 화면에서 단독으로 <span className="text-emerald-600 font-bold">Tax Talk</span> 앱 구동이 가능합니다!
+                      </li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl active:scale-[0.98] transition-all cursor-pointer text-center shadow-xs"
+              >
+                가이드 확인 완료
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
