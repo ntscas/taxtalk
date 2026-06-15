@@ -57,7 +57,7 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     const handleAppInstalled = () => {
-      console.log('[PWA] 조세전문가 게시판 앱이 성공적으로 설치되었습니다.');
+      console.log('[PWA] 조세전문가 Tax Talk 앱이 성공적으로 설치되었습니다.');
       setDeferredPrompt(null);
     };
 
@@ -223,7 +223,7 @@ export default function App() {
                 <Zap className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
               </div>
               <div>
-                <h1 className="text-base font-extrabold text-white tracking-tight leading-none">조세전문가 게시판</h1>
+                <h1 className="text-base font-extrabold text-white tracking-tight leading-none">조세전문가 Tax Talk</h1>
                 <p className="text-[9px] text-brand-sidebar-muted font-bold mt-1.5 uppercase tracking-widest">Connect Board</p>
               </div>
             </div>
@@ -304,7 +304,7 @@ export default function App() {
                     className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
                   >
                     <Download className="w-4 h-4 text-amber-400 animate-bounce" />
-                    <span>앱 설치하기</span>
+                    <span>조세전문가 Tax Talk 설치</span>
                   </button>
                 )}
               </nav>
@@ -392,7 +392,7 @@ export default function App() {
               >
                 <Menu className="w-5.5 h-5.5" />
               </button>
-              <span className="text-sm font-extrabold text-brand-text font-serif">조세전문가 게시판</span>
+              <span className="text-sm font-extrabold text-brand-text font-serif">조세전문가 Tax Talk</span>
             </div>
 
             <div className="flex items-center gap-2">
