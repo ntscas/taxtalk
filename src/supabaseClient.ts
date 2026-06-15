@@ -32,9 +32,19 @@ const customSupabaseUrl = typeof window !== 'undefined' ? (localStorage.getItem(
 const customSupabaseAnonKey = typeof window !== 'undefined' ? (localStorage.getItem('custom_supabase_anon_key') || '') : '';
 
 // Environment variables checks or localStorage overrides to determine if we should use Cloud DB or Local fallback
-const supabaseUrlRaw = customSupabaseUrl || (import.meta as any).env.VITE_SUPABASE_URL || '';
+const supabaseUrlRaw = 
+  customSupabaseUrl || 
+  (import.meta as any).env.VITE_SUPABASE_URL || 
+  (import.meta as any).env.SUPABASE_URL || 
+  '';
 export const supabaseUrl = cleanSupabaseUrl(supabaseUrlRaw);
-const supabaseAnonKey = cleanEnvValue(customSupabaseAnonKey || (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '');
+
+const supabaseAnonKey = cleanEnvValue(
+  customSupabaseAnonKey || 
+  (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 
+  (import.meta as any).env.SUPABASE_ANON_KEY || 
+  ''
+);
 
 export let isSupabaseConfigured = 
   supabaseUrl.trim() !== '' && 
@@ -46,6 +56,32 @@ export let isSupabaseConfigured =
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+if (isSupabaseConfigured) {
+  console.log('[Supabase] 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
+} else {
+  console.log('[Supabase] 로컬 전용 가상 데이터베이스(LocalStorage) 연동 모드 실행 중');
+}
+
+// Helper to implement queries with timeout to handle sleeping free-tier database instantly
+function withTimeout(promise: any, timeoutMs = 2800): Promise<any> {
+  return new Promise<any>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('TIMEOUT_EXCEEDED'));
+    }, timeoutMs);
+    
+    Promise.resolve(promise).then(
+      (res: any) => {
+        clearTimeout(timer);
+        resolve(res);
+      },
+      (err: any) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 // Helper to manage LocalStorage database fallback
 const LOCAL_STORAGE_KEY = 'supabase_board_fallback_db';
@@ -147,7 +183,10 @@ export const dbService = {
           const user = session.user;
           let name = user.user_metadata?.full_name || user.email?.split('@')[0] || '';
           try {
-            const { data: p } = await supabase.from('tax_profiles').select('name').eq('id', user.id).single();
+            const { data: p } = await withTimeout(
+              supabase.from('tax_profiles').select('name').eq('id', user.id).single(),
+              1500
+            );
             if (p?.name) name = p.name;
           } catch (_) {}
           callback({
@@ -323,12 +362,15 @@ export const dbService = {
   async getCurrentUser(): Promise<AuthUser | null> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await withTimeout(supabase.auth.getUser(), 2500);
         if (error || !user) return null;
 
         let name = user.user_metadata?.full_name || user.email?.split('@')[0] || '';
         try {
-          const { data: p } = await supabase.from('tax_profiles').select('name').eq('id', user.id).single();
+          const { data: p } = await withTimeout(
+            supabase.from('tax_profiles').select('name').eq('id', user.id).single(),
+            1500
+          );
           if (p?.name) name = p.name;
         } catch (_) {}
 
@@ -348,11 +390,14 @@ export const dbService = {
   async getProfile(userId: string): Promise<UserProfile | null> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('tax_profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
+        const { data, error } = await withTimeout(
+          supabase
+            .from('tax_profiles')
+            .select('*')
+            .eq('id', userId)
+            .single(),
+          2500
+        );
 
         if (error) {
           if (error.code === 'PGRST116') {
@@ -443,11 +488,14 @@ export const dbService = {
   async getPosts(): Promise<Post[]> {
     if (isSupabaseConfigured && supabase) {
       try {
-        // 1. Fetch posts
-        const { data: rawPosts, error: postError } = await supabase
-          .from('tax_posts')
-          .select('id, title, content, author_id, created_at, views')
-          .order('created_at', { ascending: false });
+        // 1. Fetch posts with elegant timeout limit (3000ms) to bypass cold sleep status fast
+        const { data: rawPosts, error: postError } = await withTimeout(
+          supabase
+            .from('tax_posts')
+            .select('id, title, content, author_id, created_at, views')
+            .order('created_at', { ascending: false }),
+          3000
+        );
 
         if (postError) throw postError;
 
@@ -457,10 +505,13 @@ export const dbService = {
         // 2. Fetch profiles for these authors
         let profilesMap: Record<string, { name: string; avatar_url: string }> = {};
         if (authorIds.length > 0) {
-          const { data: rawProfiles, error: profileError } = await supabase
-            .from('tax_profiles')
-            .select('id, name, avatar_url')
-            .in('id', authorIds);
+          const { data: rawProfiles, error: profileError } = await withTimeout(
+            supabase
+              .from('tax_profiles')
+              .select('id, name, avatar_url')
+              .in('id', authorIds),
+            2000
+          );
 
           if (!profileError && rawProfiles) {
             rawProfiles.forEach((prof: any) => {
@@ -624,11 +675,14 @@ export const dbService = {
     if (isSupabaseConfigured && supabase) {
       try {
         // 1. Fetch comments
-        const { data: rawComments, error: commentError } = await supabase
-          .from('tax_comments')
-          .select('id, post_id, author_id, content, created_at')
-          .eq('post_id', postId)
-          .order('created_at', { ascending: true });
+        const { data: rawComments, error: commentError } = await withTimeout(
+          supabase
+            .from('tax_comments')
+            .select('id, post_id, author_id, content, created_at')
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true }),
+          2500
+        );
 
         if (commentError) throw commentError;
 
@@ -638,10 +692,13 @@ export const dbService = {
         // 2. Fetch profiles
         let profilesMap: Record<string, { name: string; avatar_url: string }> = {};
         if (authorIds.length > 0) {
-          const { data: rawProfiles, error: profileError } = await supabase
-            .from('tax_profiles')
-            .select('id, name, avatar_url')
-            .in('id', authorIds);
+          const { data: rawProfiles, error: profileError } = await withTimeout(
+            supabase
+              .from('tax_profiles')
+              .select('id, name, avatar_url')
+              .in('id', authorIds),
+            2000
+          );
 
           if (!profileError && rawProfiles) {
             rawProfiles.forEach((prof: any) => {
