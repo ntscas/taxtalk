@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Post, Comment, AuthUser, parseCategoryAndTitle } from '../types';
 import { dbService } from '../supabaseClient';
-import { ChevronLeft, Trash2, Edit3, Send, Calendar, Eye, MessageSquare, AlertCircle, Heart } from 'lucide-react';
+import { ChevronLeft, Trash2, Edit3, Send, Calendar, Eye, MessageSquare, AlertCircle, Heart, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PostDetailProps {
@@ -136,27 +136,38 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
         </button>
         <div className="hidden lg:block" /> {/** Spacer if desktop */}
 
-        {isAuthor && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onEdit(post)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-secondary hover:bg-brand-hover text-brand-text font-semibold text-xs rounded-xl border border-brand-border cursor-pointer transition-colors"
-              id="btn-edit-post"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-brand-primary" />
-              <span>수정</span>
-            </button>
-            <button
-              onClick={handlePostDelete}
-              disabled={isDeleting}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 hover:bg-red-100/80 text-red-700 font-semibold text-xs rounded-xl border border-red-100 cursor-pointer transition-colors"
-              id="btn-delete-post"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>{isDeleting ? '삭제중' : '삭제'}</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 ml-auto">
+          {isAuthor && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onEdit(post)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-secondary hover:bg-brand-hover text-brand-text font-semibold text-xs rounded-xl border border-brand-border cursor-pointer transition-colors"
+                id="btn-edit-post"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-brand-primary" />
+                <span>수정</span>
+              </button>
+              <button
+                onClick={handlePostDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 hover:bg-red-100/80 text-red-700 font-semibold text-xs rounded-xl border border-red-100 cursor-pointer transition-colors"
+                id="btn-delete-post"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? '삭제중' : '삭제'}</span>
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={onBack}
+            className="flex items-center justify-center p-2 bg-brand-card hover:bg-brand-secondary text-brand-text rounded-xl border border-brand-border cursor-pointer transition-colors shadow-xs"
+            id="btn-close-x"
+            title="목록으로"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Main Post Card */}
@@ -301,6 +312,17 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Closed Action Row */}
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-5 py-2.5 bg-brand-card hover:bg-brand-secondary text-brand-text font-bold text-xs rounded-xl border border-brand-border cursor-pointer shadow-xs transition-transform active:scale-[0.98]"
+          id="btn-close-bottom"
+        >
+          <span>닫기</span>
+        </button>
       </div>
     </div>
   );
