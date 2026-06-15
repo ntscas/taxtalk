@@ -30,7 +30,8 @@ import {
   Heart,
   ChevronRight,
   Menu,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -42,6 +43,41 @@ export default function App() {
   const [postToEdit, setPostToEdit] = useState<Post | null>(null);
   const [userAvatar, setUserAvatar] = useState<string>('');
   
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // listen for browser PWA triggers
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('[PWA] beforeinstallprompt 이벤트를 수신했습니다. 설치 가능 상태.');
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    const handleAppInstalled = () => {
+      console.log('[PWA] 조세전문가 게시판 앱이 성공적으로 설치되었습니다.');
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`[PWA] 사용자 선택 결과: ${outcome}`);
+      setDeferredPrompt(null);
+    }
+  };
+
   // High fidelity states
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -260,6 +296,17 @@ export default function App() {
                   <User className="w-4 h-4 text-slate-400" />
                   <span>내 프로필 정보</span>
                 </button>
+
+                {deferredPrompt && (
+                  <button
+                    id="installBtn"
+                    onClick={handleInstallApp}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <span>앱 설치하기</span>
+                  </button>
+                )}
               </nav>
             </div>
           </div>
