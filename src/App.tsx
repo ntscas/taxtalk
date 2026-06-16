@@ -497,6 +497,7 @@ export default function App() {
               onMenuClick={() => setMobileMenuOpen(true)}
               onLoginClick={() => setActiveTab('profile')}
               onInstallClick={!isStandalone ? () => setShowInstallModal(true) : undefined}
+              onCategorySelect={handleCategorySelect}
             />
           </section>
 
