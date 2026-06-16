@@ -21,6 +21,7 @@ interface PostDetailProps {
 export default function PostDetail({ post, onBack, onEdit, currentUser, onDeleted, onLikeUpdated }: PostDetailProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
+  const [commentNickname, setCommentNickname] = useState('익명');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [views, setViews] = useState(post.views);
@@ -70,12 +71,17 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
     if (!commentText.trim()) return;
 
     setIsSubmittingComment(true);
     try {
-      const result = await dbService.createComment(post.id, commentText.trim(), currentUser.id);
+      let result;
+      if (currentUser) {
+        result = await dbService.createComment(post.id, commentText.trim(), currentUser.id);
+      } else {
+        result = await dbService.createAnonymousComment(post.id, commentText.trim(), commentNickname.trim() || '익명');
+      }
+
       if (result.success && result.data) {
         setCommentText('');
         fetchComments();
@@ -119,7 +125,7 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
     onLikeUpdated?.();
   };
 
-  const isAuthor = currentUser && currentUser.id === post.author_id;
+  const isAuthor = (currentUser && currentUser.id === post.author_id) || dbService.getMyAnonAuthorIds().includes(post.author_id);
 
   return (
     <div className="space-y-6" id={`post-detail-${post.id}`}>
@@ -243,33 +249,38 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
         </h2>
 
         {/* Comment input form */}
-        {currentUser ? (
-          <form onSubmit={handleCommentSubmit} className="space-y-3.5">
-            <div className="relative">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="댓글 내용을 따뜻하고 건설적으로 작성해 주세요."
-                rows={3}
-                className="w-full p-4 bg-brand-input border border-brand-border rounded-2xl text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary focus:bg-brand-card transition-all resize-none leading-relaxed"
+        <form onSubmit={handleCommentSubmit} className="space-y-3.5">
+          {!currentUser && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-brand-muted-text">작성자 닉네임 (익명):</span>
+              <input
+                type="text"
+                value={commentNickname}
+                onChange={(e) => setCommentNickname(e.target.value)}
+                placeholder="익명"
+                className="px-3 py-1.5 bg-brand-input border border-brand-border rounded-lg text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:ring-1 focus:ring-brand-primary"
               />
-              <button
-                type="submit"
-                disabled={isSubmittingComment || !commentText.trim()}
-                className="absolute bottom-3.5 right-3.5 flex items-center gap-1.5 px-3.5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:bg-brand-secondary disabled:text-brand-muted text-brand-card font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                id="comment-submit-btn"
-              >
-                <Send className="w-3 h-3" />
-                <span>등록</span>
-              </button>
             </div>
-          </form>
-        ) : (
-          <div className="flex items-center gap-2.5 p-4 bg-brand-secondary text-brand-muted-text rounded-2xl text-xs border border-brand-border/60 font-medium">
-            <AlertCircle className="w-4.5 h-4.5 text-brand-muted shrink-0" />
-            <span>댓글을 작성하려면 회원가입 또는 로그인이 필요합니다.</span>
+          )}
+          <div className="relative">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="댓글 내용을 따뜻하고 건설적으로 작성해 주세요."
+              rows={3}
+              className="w-full p-4 bg-brand-input border border-brand-border rounded-2xl text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary focus:bg-brand-card transition-all resize-none leading-relaxed"
+            />
+            <button
+              type="submit"
+              disabled={isSubmittingComment || !commentText.trim()}
+              className="absolute bottom-3.5 right-3.5 flex items-center gap-1.5 px-3.5 py-2 bg-brand-primary hover:bg-brand-primary-hover disabled:bg-brand-secondary disabled:text-brand-muted text-brand-card font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+              id="comment-submit-btn"
+            >
+              <Send className="w-3 h-3" />
+              <span>등록</span>
+            </button>
           </div>
-        )}
+        </form>
 
         {/* Comment Listing */}
         <div className="mt-6 space-y-4 pt-4 border-t border-brand-border/60">
@@ -298,7 +309,7 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
                     </div>
                   </div>
 
-                  {currentUser && currentUser.id === comment.author_id && (
+                  {((currentUser && currentUser.id === comment.author_id) || dbService.getMyAnonAuthorIds().includes(comment.author_id)) && (
                     <button
                       onClick={() => handleCommentDelete(comment.id)}
                       className="p-1 px-2.5 text-[11px] text-brand-muted hover:text-red-700 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100 font-bold cursor-pointer"
