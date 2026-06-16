@@ -1,6 +1,6 @@
 {
   "id": "tax-talk-pwa-v1",
-  "name": "조세전문가 Tax Talk",
+  "name": "Tax Talk",
   "short_name": "Tax Talk",
   "description": "실시간 조세전문가 소통 및 지식 공유 플랫폼",
   "start_url": "./index.html",
