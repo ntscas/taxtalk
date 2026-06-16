@@ -172,6 +172,25 @@ export const dbService = {
     return isSupabaseConfigured;
   },
 
+  getMyAnonAuthorIds(): string[] {
+    try {
+      const val = localStorage.getItem('my_anon_author_ids');
+      return val ? JSON.parse(val) : [];
+    } catch (_) {
+      return [];
+    }
+  },
+
+  registerMyAnonAuthorId(id: string) {
+    try {
+      const ids = this.getMyAnonAuthorIds();
+      if (!ids.includes(id)) {
+        ids.push(id);
+        localStorage.setItem('my_anon_author_ids', JSON.stringify(ids));
+      }
+    } catch (_) {}
+  },
+
   subscribeAuth(callback: (user: AuthUser | null) => void) {
     if (isSupabaseConfigured && supabase) {
       // 1. Initial user check
@@ -789,6 +808,141 @@ export const dbService = {
 
       db.comments.push(newComment);
       saveLocalDB(db);
+      return { success: true, data: newComment };
+    }
+  },
+
+  async createAnonymousPost(title: string, content: string, nickname: string): Promise<{ success: boolean; data?: Post; error?: string }> {
+    let finalNickname = nickname.trim() || '익명';
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let userId = '';
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError || !authData.user) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            userId = session.user.id;
+          } else {
+            throw new Error(authError?.message || '익명 로그인에 실패했습니다.');
+          }
+        } else {
+          userId = authData.user.id;
+        }
+
+        // Upsert profile with nickname
+        await supabase
+          .from('tax_profiles')
+          .upsert({
+            id: userId,
+            name: finalNickname,
+            bio: '익명으로 작성된 본 질문/답변 프로필입니다.',
+            avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+            updated_at: new Date().toISOString()
+          });
+
+        this.registerMyAnonAuthorId(userId);
+        return this.createPost(title, content, userId);
+      } catch (err: any) {
+        console.error('Anonymous write failed, falling back to LocalStorage:', err);
+        const db = getLocalDB();
+        const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+        const newPost: Post = {
+          id: 'post_' + Math.random().toString(36).substr(2, 9),
+          title,
+          content,
+          author_id: fakeUserId,
+          author_name: finalNickname,
+          author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+          created_at: new Date().toISOString(),
+          views: 0
+        };
+        db.posts.unshift(newPost);
+        saveLocalDB(db);
+        this.registerMyAnonAuthorId(fakeUserId);
+        return { success: true, data: newPost };
+      }
+    } else {
+      const db = getLocalDB();
+      const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+      const newPost: Post = {
+        id: 'post_' + Math.random().toString(36).substr(2, 9),
+        title,
+        content,
+        author_id: fakeUserId,
+        author_name: finalNickname,
+        author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+        created_at: new Date().toISOString(),
+        views: 0
+      };
+      db.posts.push(newPost);
+      saveLocalDB(db);
+      this.registerMyAnonAuthorId(fakeUserId);
+      return { success: true, data: newPost };
+    }
+  },
+
+  async createAnonymousComment(postId: string, content: string, nickname: string): Promise<{ success: boolean; data?: Comment; error?: string }> {
+    let finalNickname = nickname.trim() || '익명';
+    if (isSupabaseConfigured && supabase) {
+      try {
+        let userId = '';
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError || !authData.user) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            userId = session.user.id;
+          } else {
+            throw new Error(authError?.message || '익명 로그인 실패');
+          }
+        } else {
+          userId = authData.user.id;
+        }
+
+        await supabase
+          .from('tax_profiles')
+          .upsert({
+            id: userId,
+            name: finalNickname,
+            bio: '익명 사용자',
+            avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+            updated_at: new Date().toISOString()
+          });
+
+        this.registerMyAnonAuthorId(userId);
+        return this.createComment(postId, content, userId);
+      } catch (err: any) {
+        console.error('Anonymous comment failed, falling back to LocalStorage:', err);
+        const db = getLocalDB();
+        const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+        const newComment: Comment = {
+          id: 'comment_' + Math.random().toString(36).substr(2, 9),
+          post_id: postId,
+          author_id: fakeUserId,
+          author_name: finalNickname,
+          author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+          content,
+          created_at: new Date().toISOString()
+        };
+        db.comments.push(newComment);
+        saveLocalDB(db);
+        this.registerMyAnonAuthorId(fakeUserId);
+        return { success: true, data: newComment };
+      }
+    } else {
+      const db = getLocalDB();
+      const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+      const newComment: Comment = {
+        id: 'comment_' + Math.random().toString(36).substr(2, 9),
+        post_id: postId,
+        author_id: fakeUserId,
+        author_name: finalNickname,
+        author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
+        content,
+        created_at: new Date().toISOString()
+      };
+      db.comments.push(newComment);
+      saveLocalDB(db);
+      this.registerMyAnonAuthorId(fakeUserId);
       return { success: true, data: newComment };
     }
   },
