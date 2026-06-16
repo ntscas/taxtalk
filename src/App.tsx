@@ -47,16 +47,18 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [showInstallModal, setShowInstallModal] = useState<boolean>(false);
+  const [isInIframe, setIsInIframe] = useState<boolean>(false);
 
   // Check if already running as standalone PWA
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      setIsInIframe(window.self !== window.top);
       const isStandaloneMode = 
         window.matchMedia('(display-mode: standalone)').matches || 
         (window.navigator as any).standalone === true ||
         document.referrer.includes('android-app://');
       setIsStandalone(isStandaloneMode);
-      console.log('[PWA] Standalone 모드 감지:', isStandaloneMode);
+      console.log('[PWA] Standalone 모드 감지:', isStandaloneMode, '아이프레임 여부:', window.self !== window.top);
       
       // Parse shortcut actions on startup
       const params = new URLSearchParams(window.location.search);
@@ -496,7 +498,13 @@ export default function App() {
               fetchPosts={fetchPosts}
               onMenuClick={() => setMobileMenuOpen(true)}
               onLoginClick={() => setActiveTab('profile')}
-              onInstallClick={!isStandalone ? () => setShowInstallModal(true) : undefined}
+              onInstallClick={!isStandalone ? () => {
+                if (deferredPrompt) {
+                  handleInstallApp();
+                } else {
+                  setShowInstallModal(true);
+                }
+              } : undefined}
               onCategorySelect={handleCategorySelect}
             />
           </section>
@@ -625,12 +633,12 @@ export default function App() {
       {/* Tax Talk PWA Install Guidance Modal */}
       <AnimatePresence>
         {showInstallModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs" id="install-guide-backdrop">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs" id="install-guide-backdrop">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 w-full max-w-sm border border-slate-100 shadow-2xl relative space-y-5 text-slate-800"
+              className="bg-white rounded-3xl p-6 w-full max-w-sm border border-slate-100 shadow-2xl relative space-y-4.5 text-slate-800"
             >
               <button 
                 onClick={() => setShowInstallModal(false)}
@@ -645,56 +653,89 @@ export default function App() {
                   <Download className="w-5 h-5 text-emerald-500 animate-bounce" />
                 </div>
                 <h3 className="text-base font-black text-slate-900 font-serif">Tax Talk 앱 설치하기</h3>
-                <p className="text-[11px] text-slate-500 font-semibold whitespace-pre-line leading-relaxed">
-                  편리한 독립형 앱 모드로 설치하시면 알림 수신, 빠른 로딩 및 일반 앱처럼 홈화면에서 바로 소통하실 수 있습니다.
+                <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                  독립형 앱(PWA)으로 설치해 보세요! 일반 모바일 앱처럼 홈화면에서 원터치로 빠르게 접속할 수 있습니다.
                 </p>
               </div>
+
+              {/* Special Context 1: Preview Iframe detected */}
+              {isInIframe && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-2xl space-y-2 text-center">
+                  <p className="text-[10px] text-amber-700 font-extrabold leading-relaxed">
+                    ⚠️ 현재 AI Studio 실시간 편집 프리뷰(아이프레임) 내부에서는 모바일 브라우저 보안 정책상 다이렉트 설치가 막혀있을 수 있습니다.
+                  </p>
+                  <button
+                    onClick={() => window.open(window.location.origin, '_blank')}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <span>새 창(전체 화면)으로 열기 ➔</span>
+                  </button>
+                  <p className="text-[9px] text-slate-400 font-bold">
+                    ※ 새 창에서 열면 즉시 원클릭 설치 버튼이 정상 작동합니다!
+                  </p>
+                </div>
+              )}
+
+              {/* Special Context 2: One-click Browser prompt is available */}
+              {deferredPrompt && (
+                <div className="p-1">
+                  <button
+                    onClick={() => {
+                      handleInstallApp();
+                      setShowInstallModal(false);
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-[0.98] text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer text-center shadow-md flex items-center justify-center gap-2 animate-pulse"
+                  >
+                    <Download className="w-4 h-4 animate-bounce" />
+                    <span>지금 기기에 즉시 설치하기</span>
+                  </button>
+                </div>
+              )}
 
               {/* iOS vs Android Guide Tabs */}
               <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50 space-y-3">
                 {typeof window !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-1.5 font-bold text-xs text-rose-500 pb-1.5 border-b border-slate-100">
-                      <span>📱 아이폰/아이패드 (iOS Safari) 가이드</span>
+                      <span>📱 아이폰/아이패드 (iOS Safari) 설치 방법</span>
                     </div>
                     <ol className="text-[11px] text-slate-600 space-y-2.5 list-decimal list-inside font-semibold leading-relaxed">
                       <li>
-                        Safari 브라우저 하단의 <span className="font-bold text-emerald-600">[공유]</span> 아이콘(네모와 위 화살표 모양)을 탭합니다.
+                        Safari 브라우저 하단 툴바의 <span className="font-bold text-emerald-600">[공유]</span> 아이콘(네모와 위 화살표 아이콘)을 선택합니다.
                       </li>
                       <li>
-                        메뉴 목록에서 아래로 스크롤하여 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span> 메뉴를 클릭합니다.
+                        목록에서 아래로 조금 스크롤하여 <span className="font-bold text-slate-950 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span> 메뉴를 클릭합니다.
                       </li>
                       <li>
-                        우측 상단의 <span className="font-bold text-slate-900">[추가]</span> 버튼을 완성하시면 설치가 완전히 끝납니다!
+                        우측 상단의 <span className="font-bold text-slate-950">[추가]</span> 버튼을 터치하여 설치를 완료합니다!
                       </li>
                     </ol>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-600 pb-1.5 border-b border-slate-100">
-                      <span>📱 안드로이드 / 모바일 크롬 가이드</span>
+                      <span>📱 안드로이드 / 모바일 크롬 설치 방법</span>
                     </div>
                     <ol className="text-[11px] text-slate-600 space-y-2.5 list-decimal list-inside font-semibold leading-relaxed">
                       <li>
-                        브라우저 우측 상단 혹은 하단의 <span className="font-bold text-emerald-600">[점 3개 (더보기)]</span> 아이콘을 누릅니다.
+                        모바일 크롬 주소창 오른쪽의 <span className="font-bold text-slate-950 bg-slate-200/60 p-0.5 px-1.5 rounded">[점 3개]</span>를 누르고 <span className="font-bold text-emerald-600">[앱 설치]</span> 또는 <span className="font-bold text-slate-950 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span>를 터치합니다.
                       </li>
                       <li>
-                        나타난 브라우저 옵션 메뉴 중 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[앱 설치]</span> 혹은 <span className="font-bold text-slate-900 bg-slate-200/60 p-0.5 px-1.5 rounded">[홈 화면에 추가]</span>를 선택합니다.
-                      </li>
-                      <li>
-                        설치가 완료되면 홈 화면에서 단독으로 <span className="text-emerald-600 font-bold">Tax Talk</span> 앱 구동이 가능합니다!
+                        또는, 이 가이드 상단의 <span className="text-emerald-600 font-extrabold">[원클릭 즉시 설치]</span> 버튼이 보일 시 클릭 한 번으로 손쉽게 추가할 수 있습니다!
                       </li>
                     </ol>
                   </div>
                 )}
               </div>
 
-              <button
-                onClick={() => setShowInstallModal(false)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl active:scale-[0.98] transition-all cursor-pointer text-center shadow-xs"
-              >
-                가이드 확인 완료
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowInstallModal(false)}
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl active:scale-[0.98] transition-all cursor-pointer text-center"
+                >
+                  가이드 닫기
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
