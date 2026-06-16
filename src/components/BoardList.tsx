@@ -20,6 +20,7 @@ interface BoardListProps {
   onMenuClick?: () => void;
   onLoginClick?: () => void;
   onInstallClick?: () => void;
+  onCategorySelect?: (cat: 'All' | Category) => void;
 }
 
 export default function BoardList({ 
@@ -33,7 +34,8 @@ export default function BoardList({
   fetchPosts,
   onMenuClick,
   onLoginClick,
-  onInstallClick
+  onInstallClick,
+  onCategorySelect
 }: BoardListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'latest' | 'views'>('latest');
@@ -168,19 +170,36 @@ export default function BoardList({
       </div>
 
       {/* List Sub-header: Filter context and sorting list */}
-      <div className="px-4 py-3.5 border-b border-brand-border/60 flex items-center justify-between bg-brand-secondary/35 shrink-0">
-        <h2 className="text-xs font-black text-[#1e293b] tracking-wider uppercase font-sans">
-          {selectedCategory === 'All' ? 'ALL DISCUSSIONS' : `${selectedCategory.toUpperCase()} DISCUSSIONS`}
-        </h2>
+      <div className="px-3 py-2.5 border-b border-brand-border/60 flex items-center justify-between bg-brand-secondary/35 shrink-0 overflow-hidden">
+        {/* Categories Horizontal Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 shrink-0 select-none max-w-[70%]">
+          {(['All', '공지', '자유', '정보', '질문'] as const).map((cat) => {
+            const isActive = (cat === 'All' && selectedCategory === 'All') || (cat === selectedCategory);
+            const displayLabel = cat === 'All' ? 'ALL' : cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => onCategorySelect?.(cat)}
+                className={`px-2.5 py-1 text-[11px] font-extrabold rounded-lg transition-all shrink-0 cursor-pointer ${
+                  isActive 
+                    ? 'bg-brand-primary text-white shadow-xs' 
+                    : 'bg-white hover:bg-brand-hover text-brand-muted-text border border-brand-border/60'
+                }`}
+              >
+                {displayLabel}
+              </button>
+            );
+          })}
+        </div>
         
         {/* Sort context trigger */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0 ml-2">
           <button
             onClick={() => setSortBy(sortBy === 'latest' ? 'views' : 'latest')}
-            className="text-[11px] font-bold text-brand-muted-text hover:text-brand-text flex items-center gap-1 transition-colors cursor-pointer"
+            className="text-[10px] font-extrabold text-brand-muted-text hover:text-brand-text flex items-center gap-1 transition-colors cursor-pointer"
           >
-            <span>Sort: {sortBy === 'latest' ? '최신 등록순' : '조회수 높은순'}</span>
-            <span className="text-[9px]">▼</span>
+            <span>{sortBy === 'latest' ? '최신순' : '조회순'}</span>
+            <span className="text-[8px]">▼</span>
           </button>
         </div>
       </div>
