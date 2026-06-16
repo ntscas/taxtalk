@@ -11,7 +11,7 @@ import { motion } from 'motion/react';
 
 interface PostFormProps {
   postToEdit?: Post;
-  currentUser: AuthUser;
+  currentUser: AuthUser | null;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -22,6 +22,7 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
   const [category, setCategory] = useState<Category>(parsed.category);
   const [title, setTitle] = useState(postToEdit ? parsed.title : '');
   const [content, setContent] = useState(postToEdit?.content || '');
+  const [nickname, setNickname] = useState('익명');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -48,7 +49,13 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
         }
       } else {
         // Create mode
-        const result = await dbService.createPost(finalTitle, content.trim(), currentUser.id);
+        let result;
+        if (currentUser) {
+          result = await dbService.createPost(finalTitle, content.trim(), currentUser.id);
+        } else {
+          result = await dbService.createAnonymousPost(finalTitle, content.trim(), nickname.trim() || '익명');
+        }
+        
         if (result.success) {
           onSuccess();
         } else {
@@ -112,6 +119,21 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
             ))}
           </div>
         </div>
+
+        {/* Nickname Input - only shown to logged out anonymous authors */}
+        {!currentUser && !postToEdit && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-brand-text">작성자 닉네임 (익명)</label>
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="익명"
+              disabled={isSubmitting}
+              className="w-2/3 px-4 py-3 bg-brand-input border border-brand-border rounded-xl text-sm text-brand-text placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary focus:bg-brand-card transition-all font-semibold"
+            />
+          </div>
+        )}
 
         {/* Title Input */}
         <div className="space-y-1.5">
