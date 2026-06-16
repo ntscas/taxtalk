@@ -551,29 +551,16 @@ export default function App() {
                         onLikeUpdated={() => setLikesUpdateTrigger(prev => prev + 1)}
                       />
                     ) : boardView === 'write' ? (
-                      currentUser ? (
-                        <PostForm 
-                          currentUser={currentUser}
-                          onSuccess={() => {
-                            setBoardView('list');
-                            fetchPosts();
-                          }}
-                          onCancel={() => setBoardView('list')}
-                        />
-                      ) : (
-                        <div className="bg-brand-card p-8 rounded-3xl text-center max-w-md mx-auto space-y-4 border border-brand-border">
-                          <LogIn className="w-10 h-10 text-brand-primary mx-auto" />
-                          <p className="text-sm font-semibold text-brand-text">새 포스팅을 게시하려면 로그인이 필요합니다.</p>
-                          <button
-                            onClick={() => setActiveTab('profile')}
-                            className="px-6 py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-brand-card font-bold text-xs rounded-xl cursor-pointer"
-                          >
-                            로그인 및 가입하러 가기
-                          </button>
-                        </div>
-                      )
+                      <PostForm 
+                        currentUser={currentUser}
+                        onSuccess={() => {
+                          setBoardView('list');
+                          fetchPosts();
+                        }}
+                        onCancel={() => setBoardView('list')}
+                      />
                     ) : boardView === 'edit' && postToEdit ? (
-                      currentUser ? (
+                      (currentUser || dbService.getMyAnonAuthorIds().includes(postToEdit.author_id)) ? (
                         <PostForm 
                           postToEdit={postToEdit}
                           currentUser={currentUser}
