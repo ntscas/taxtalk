@@ -27,16 +27,27 @@ function cleanSupabaseUrl(url: string): string {
   return cleaned;
 }
 
-// Hardcoded Supabase Project URL and Anon Public Key for seamless GitHub deployment and Cloud DB linkage!
-export const supabaseUrl = 'https://yvxjcsoiqekjkckcluql.supabase.co';
-export const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eGpjc29pcWVramtja2NsdXFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NzUxOTAsImV4cCI6MjA5NjA1MTE5MH0.NG6tg3HAN7ZfW-sr8ogIu1sjvCj80k7WpckR0bePwec';
+// Read custom database credentials from environment if configured, otherwise use the default demo DB
+const envUrl = cleanSupabaseUrl((import.meta as any).env.VITE_SUPABASE_URL);
+const envAnonKey = cleanEnvValue((import.meta as any).env.VITE_SUPABASE_ANON_KEY);
 
-export const isSupabaseConfigured = true;
+const defaultUrl = 'https://yvxjcsoiqekjkckcluql.supabase.co';
+const defaultAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eGpjc29pcWVramtja2NsdXFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NzUxOTAsImV4cCI6MjA5NjA1MTE5MH0.NG6tg3HAN7ZfW-sr8ogIu1sjvCj80k7WpckR0bePwec';
+
+export const supabaseUrl = envUrl || defaultUrl;
+export const supabaseAnonKey = envAnonKey || defaultAnonKey;
+
+export const isUserConfigured = !!envUrl && !!envAnonKey;
+export const isSupabaseConfigured = !!supabaseUrl && !!supabaseAnonKey;
 
 // Instantiating the real client-side Supabase client directly
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-console.log('[Supabase] 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
+if (isUserConfigured) {
+  console.log('[Supabase] 사용자 사용자 정의 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
+} else {
+  console.log('[Supabase] 기본 데모 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
+}
 
 // Helper to implement queries with timeout to handle sleeping free-tier database instantly
 function withTimeout(promise: any, timeoutMs = 2800): Promise<any> {
