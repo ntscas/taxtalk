@@ -555,7 +555,19 @@ export const dbService = {
           };
         });
 
-        return posts;
+        // Merge cloud posts with local fallback posts to ensure 100% of the user's posts are visible
+        const localPosts = getLocalDB().posts;
+        const cloudPostIds = new Set(posts.map(p => p.id));
+        const mergedPosts = [...posts];
+        
+        localPosts.forEach(lp => {
+          if (!cloudPostIds.has(lp.id)) {
+            mergedPosts.push(lp);
+          }
+        });
+
+        mergedPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return mergedPosts;
       } catch (err) {
         console.error('Direct Client fetch posts error:', err);
         return getLocalDB().posts;
@@ -741,7 +753,19 @@ export const dbService = {
           };
         });
 
-        return comments;
+        // Merge cloud comments with local fallback comments
+        const localComments = getLocalDB().comments.filter(c => c.post_id === postId);
+        const cloudCommentIds = new Set(comments.map(c => c.id));
+        const mergedComments = [...comments];
+        
+        localComments.forEach(lc => {
+          if (!cloudCommentIds.has(lc.id)) {
+            mergedComments.push(lc);
+          }
+        });
+
+        mergedComments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return mergedComments;
       } catch (err) {
         console.error('Direct Client fetch comments error:', err);
         return getLocalDB().comments.filter(c => c.post_id === postId);
@@ -810,7 +834,7 @@ export const dbService = {
     }
   },
 
-  async createAnonymousPost(title: string, content: string, nickname: string): Promise<{ success: boolean; data?: Post; error?: string }> {
+  async createAnonymousPost(title: string, content: string, nickname: string): Promise<{ success: boolean; data?: Post; error?: string; isFallback?: boolean }> {
     let finalNickname = nickname.trim() || '익명';
     if (isSupabaseConfigured && supabase) {
       let userId = '';
@@ -856,29 +880,9 @@ export const dbService = {
           throw new Error(result.error || '게시글 테이블(tax_posts) 저장 실패');
         }
       } catch (dbErr: any) {
-        console.error('[Supabase] Cloud raw insert failed. Logging to local storage as fallback:', dbErr);
-        const db = getLocalDB();
-        const fakeUserId = userId || 'anon_' + Math.random().toString(36).substr(2, 9);
-        const newPost: Post = {
-          id: 'post_' + Math.random().toString(36).substr(2, 9),
-          title,
-          content,
-          author_id: fakeUserId,
-          author_name: finalNickname,
-          author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
-          created_at: new Date().toISOString(),
-          views: 0
-        };
-        db.posts.unshift(newPost);
-        saveLocalDB(db);
-        this.registerMyAnonAuthorId(fakeUserId);
-        
-        const isAnonDisabled = dbErr?.message?.includes('violates row-level security') || String(dbErr).includes('row-level');
-        const customErrorMsg = isAnonDisabled
-          ? '클라우드 DB 저장 실패 (보안 정책 차단)\n\n[원인]\n현재 사용 중이신 Supabase 프로젝트의 고유 보안 설정(Row Level Security, RLS) 때문에 비회원의 직접 글 작성이 차단되고 있습니다.\n\n[해결 방법]\n하단의 "데이터베이스 연동 가이드" 안내창에 있는 [익명/unauthenticated 사용자 글쓰기를 허용하기 위한 추가 RLS SQL 정책] 구문을 복사한 후, 본인의 Supabase SQL Editor에 입력하고 실행(Run) 하시면 즉각적인 클라우드 글쓰기가 허용됩니다!'
-          : `클라우드 DB 저장 실패: ${dbErr?.message || '네트워크 오류'}\n(현재 작성된 글은 유실 방지를 위해 로컬 브라우저 세션에 백업 보관되었습니다)`;
-
-        return { success: false, error: customErrorMsg, data: newPost };
+        console.error('[Supabase] Cloud raw insert failed:', dbErr);
+        const errorMsg = dbErr?.message || '데이터베이스 연결 및 저장에 실패했습니다.';
+        return { success: false, error: errorMsg };
       }
     } else {
       const db = getLocalDB();
@@ -900,7 +904,7 @@ export const dbService = {
     }
   },
 
-  async createAnonymousComment(postId: string, content: string, nickname: string): Promise<{ success: boolean; data?: Comment; error?: string }> {
+  async createAnonymousComment(postId: string, content: string, nickname: string): Promise<{ success: boolean; data?: Comment; error?: string; isFallback?: boolean }> {
     let finalNickname = nickname.trim() || '익명';
     if (isSupabaseConfigured && supabase) {
       let userId = '';
@@ -946,28 +950,9 @@ export const dbService = {
           throw new Error(result.error || '댓글 테이블(tax_comments) 저장 실패');
         }
       } catch (dbErr: any) {
-        console.error('[Supabase] Cloud raw comment insert failed. Logging to local storage as fallback:', dbErr);
-        const db = getLocalDB();
-        const fakeUserId = userId || 'anon_' + Math.random().toString(36).substr(2, 9);
-        const newComment: Comment = {
-          id: 'comment_' + Math.random().toString(36).substr(2, 9),
-          post_id: postId,
-          author_id: fakeUserId,
-          author_name: finalNickname,
-          author_avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(finalNickname)}`,
-          content,
-          created_at: new Date().toISOString()
-        };
-        db.comments.push(newComment);
-        saveLocalDB(db);
-        this.registerMyAnonAuthorId(fakeUserId);
-        
-        const isAnonDisabled = dbErr?.message?.includes('violates row-level security') || String(dbErr).includes('row-level');
-        const customErrorMsg = isAnonDisabled
-          ? '클라우드 DB 댓글 저장 실패 (보안 정책 차단)\n\n[원인]\n현재 사용 중이신 Supabase 프로젝트의 고유 보안 설정(Row Level Security, RLS) 때문에 비회원의 직접 댓글 작성이 차단되고 있습니다.\n\n[해결 방법]\n하단의 "데이터베이스 연동 가이드" 안내창에 있는 [익명/unauthenticated 사용자 댓글 쓰기를 허용하기 위한 추가 RLS SQL 정책] 구문을 복사한 후, 본인의 Supabase SQL Editor에 입력하고 실행(Run) 하시면 즉각적인 클라우드 댓글 쓰기가 허용됩니다!'
-          : `클라우드 DB 댓글 저장 실패: ${dbErr?.message || '네트워크 오류'}\n(현재 작성된 댓글은 유실 방지를 위해 로컬 브라우저 세션에 백업 보관되었습니다)`;
-
-        return { success: false, error: customErrorMsg, data: newComment };
+        console.error('[Supabase] Cloud raw comment insert failed:', dbErr);
+        const errorMsg = dbErr?.message || '데이터베이스 연결 및 댓글 저장에 실패했습니다.';
+        return { success: false, error: errorMsg };
       }
     } else {
       const db = getLocalDB();
