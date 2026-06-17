@@ -275,11 +275,6 @@ export default function BoardList({
                       )}
                     </div>
                     <span className="text-[10px] font-extrabold text-brand-text">{post.author_name}</span>
-                    {(post as any).isLocalOnly && (
-                      <span className="px-1.5 py-0.5 text-[8px] font-black text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-md shrink-0">
-                        기기저장
-                      </span>
-                    )}
                   </div>
 
                   {/* Badges for views & likes */}
