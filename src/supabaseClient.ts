@@ -165,6 +165,73 @@ function saveLocalDB(db: LocalDB) {
 // Global active auth listener for local fallback
 let authListeners: ((user: AuthUser | null) => void)[] = [];
 
+async function getOrCreateAnonUserSession(): Promise<string> {
+  if (!supabase) throw new Error('Supabase client is not instantiated');
+  
+  // 1) Try native anonymous sign in first
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    if (!authError && authData?.user) {
+      return authData.user.id;
+    }
+  } catch (e) {
+    console.warn('[Supabase] Native anonymous login failed, trying persistent custom account fallback:', e);
+  }
+
+  // 2) Fallback: Check for existing session
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      return session.user.id;
+    }
+  } catch (_) {}
+
+  // 3) Create a unique email-based dummy user for this device.
+  // This satisfies BOTH auth.users AND tax_posts_author_id_fkey database foreign keys completely!
+  const deviceId = getClientDeviceUUID();
+  const cleanId = deviceId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15).toLowerCase();
+  const dummyEmail = `user_${cleanId}@taxtalk_fallback.com`;
+  const dummyPass = `Pass123_!#${cleanId.substring(0, 8)}`;
+
+  try {
+    // Attempt sign in with password
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+      email: dummyEmail,
+      password: dummyPass
+    });
+
+    if (!signInErr && signInData?.user) {
+      return signInData.user.id;
+    }
+
+    // If sign in fails, attempt registration
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      email: dummyEmail,
+      password: dummyPass,
+      options: {
+        data: {
+          name: '익명'
+        }
+      }
+    });
+
+    if (!signUpErr && signUpData?.user) {
+      return signUpData.user.id;
+    }
+
+    // Last resort session check
+    const { data: { session: lastSession } } = await supabase.auth.getSession();
+    if (lastSession?.user) {
+      return lastSession.user.id;
+    }
+  } catch (fallbackErr) {
+    console.error('[Supabase] Custom account fallback error:', fallbackErr);
+  }
+
+  // Safe fallback to raw device UUID
+  return deviceId;
+}
+
 export const dbService = {
   async checkConfig(): Promise<boolean> {
     return isSupabaseConfigured;
@@ -555,25 +622,14 @@ export const dbService = {
           };
         });
 
-        // Merge cloud posts with local fallback posts to ensure 100% of the user's posts are visible
-        const localPosts = getLocalDB().posts;
-        const cloudPostIds = new Set(posts.map(p => p.id));
-        const mergedPosts = [...posts];
-        
-        localPosts.forEach(lp => {
-          if (!cloudPostIds.has(lp.id)) {
-            mergedPosts.push(lp);
-          }
-        });
-
-        mergedPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        return mergedPosts;
+        posts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return posts;
       } catch (err) {
         console.error('Direct Client fetch posts error:', err);
-        return getLocalDB().posts;
+        return [];
       }
     } else {
-      return [...getLocalDB().posts].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return [];
     }
   },
 
@@ -680,6 +736,12 @@ export const dbService = {
   async deletePost(id: string) {
     if (isSupabaseConfigured && supabase) {
       try {
+        // Delete all comments belonging to this post first to prevent foreign key errors (tax_comments_post_id_fkey)
+        await supabase
+          .from('tax_comments')
+          .delete()
+          .eq('post_id', id);
+
         const { error } = await supabase
           .from('tax_posts')
           .delete()
@@ -753,8 +815,10 @@ export const dbService = {
           };
         });
 
-        // Merge cloud comments with local fallback comments
-        const localComments = getLocalDB().comments.filter(c => c.post_id === postId);
+        // No local fallback
+        comments.sort((a, b) => new Date(a.created_at).getTime() - new Date(a.created_at).getTime());
+        return comments;
+        /*
         const cloudCommentIds = new Set(comments.map(c => c.id));
         const mergedComments = [...comments];
         
@@ -765,15 +829,13 @@ export const dbService = {
         });
 
         mergedComments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        return mergedComments;
+        */
       } catch (err) {
         console.error('Direct Client fetch comments error:', err);
-        return getLocalDB().comments.filter(c => c.post_id === postId);
+        return [];
       }
     } else {
-      return getLocalDB().comments
-        .filter(c => c.post_id === postId)
-        .sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return [];
     }
   },
 
@@ -839,19 +901,9 @@ export const dbService = {
     if (isSupabaseConfigured && supabase) {
       let userId = '';
       try {
-        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-        if (authError || !authData.user) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            userId = session.user.id;
-          } else {
-            throw new Error(authError?.message || '익명 인증 토큰을 받지 못했습니다.');
-          }
-        } else {
-          userId = authData.user.id;
-        }
+        userId = await getOrCreateAnonUserSession();
       } catch (authErr: any) {
-        console.warn('[Supabase] Anonymous auth disabled or failed. Proceeding with robust device UUID fallback:', authErr);
+        console.warn('[Supabase] Anonymous session fetch failed:', authErr);
         userId = getClientDeviceUUID();
       }
 
@@ -909,17 +961,7 @@ export const dbService = {
     if (isSupabaseConfigured && supabase) {
       let userId = '';
       try {
-        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-        if (authError || !authData.user) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            userId = session.user.id;
-          } else {
-            throw new Error(authError?.message || '익명 인증 토큰을 받지 못했습니다.');
-          }
-        } else {
-          userId = authData.user.id;
-        }
+        userId = await getOrCreateAnonUserSession();
       } catch (authErr: any) {
         console.warn('[Supabase] Anonymous auth disabled or failed for comment. Proceeding with robust device UUID fallback:', authErr);
         userId = getClientDeviceUUID();
