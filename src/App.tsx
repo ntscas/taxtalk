@@ -336,6 +336,21 @@ export default function App() {
                   <span>내 프로필 정보</span>
                 </button>
 
+                <button
+                  onClick={() => { setShowSupabaseModal(true); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer group ${
+                    isSupabaseConfigured 
+                      ? 'text-emerald-400 hover:bg-brand-sidebar-hover/40 hover:text-white' 
+                      : 'text-amber-400 bg-amber-500/5 border border-amber-500/10 hover:bg-amber-500/10'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-slate-400 group-hover:text-white" />
+                    <span>클라우드 DB 연동 설정</span>
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-amber-500 animate-pulse'}`} />
+                </button>
+
                 {!isStandalone && (
                   <div>
                     {deferredPrompt ? (
@@ -609,20 +624,42 @@ export default function App() {
                 )}
 
                 {activeTab === 'profile' && (
-                  currentUser ? (
-                    <UserProfile 
-                      currentUser={currentUser} 
-                      onProfileUpdated={handleProfileUpdated}
-                    />
-                  ) : (
-                    <div className="space-y-6">
-                      <div className="text-center">
-                        <h2 className="text-xl font-bold text-slate-900 tracking-tight font-serif">프로필 및 회원정보</h2>
-                        <p className="text-xs text-slate-500 mt-1">포스팅과 프로필 관리를 위해 회원가입 혹은 로그인을 진행해 주세요.</p>
+                  <div className="space-y-6">
+                    {!isSupabaseConfigured && (
+                      <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-slate-800" id="profile-db-warning">
+                        <div className="space-y-1 text-left">
+                          <h4 className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                            <span className="text-lg leading-none select-none">💡</span>
+                            <span>현재 로컬 전용 모드로 작동하고 있습니다</span>
+                          </h4>
+                          <p className="text-[11px] font-semibold text-amber-800/80 leading-relaxed max-w-xl">
+                            GitHub Pages 등 빌드 보안상 환경변수(.env)가 비워진 채 업로드된 경우, 클라우드 DB 연결이 비활성화됩니다. 실제 동료들과 실시간 연동하여 글과 댓글을 나누려면 아래 버튼을 눌러 본인의 Supabase Project URL 및 Anon Key를 등록해 주세요!
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowSupabaseModal(true)}
+                          className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer shrink-0 transition-all active:scale-95"
+                        >
+                          Supabase 클라우드 연동하기
+                        </button>
                       </div>
-                      <AuthScreen onSuccess={(user) => setCurrentUser(user)} />
-                    </div>
-                  )
+                    )}
+
+                    {currentUser ? (
+                      <UserProfile 
+                        currentUser={currentUser} 
+                        onProfileUpdated={handleProfileUpdated}
+                      />
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="text-center">
+                          <h2 className="text-xl font-bold text-slate-900 tracking-tight font-serif">프로필 및 회원정보</h2>
+                          <p className="text-xs text-slate-500 mt-1">포스팅과 프로필 관리를 위해 회원가입 혹은 로그인을 진행해 주세요.</p>
+                        </div>
+                        <AuthScreen onSuccess={(user) => setCurrentUser(user)} />
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {activeTab === 'guide' && (
@@ -738,6 +775,102 @@ export default function App() {
                   className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl active:scale-[0.98] transition-all cursor-pointer text-center"
                 >
                   가이드 닫기
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Supabase Dynamic Configuration Modal */}
+        {showSupabaseModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs" id="supabase-config-backdrop">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 w-full max-w-md border border-slate-100 shadow-2xl relative space-y-4 text-slate-800"
+            >
+              <button 
+                onClick={() => setShowSupabaseModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                id="btn-close-supabase-modal"
+                title="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="space-y-1.5 text-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <Database className="w-5 h-5 text-emerald-500" />
+                </div>
+                <h3 className="text-base font-black text-slate-900 font-serif">Supabase Cloud 연동 및 복구</h3>
+                <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                  GitHub 정적 배포 환경에서는 보안상 환경변수(.env) 파일이 업로드되지 않아 DB 접속이 안 될 수 있습니다. 브라우저의 <span className="text-emerald-500 font-extrabold">클라이언트 사이드 안전 기억소(LocalStorage)</span>에 본인의 Supabase API 주소와 Anon Key를 직접 기입하면 즉시 실시간 연동이 정상적으로 작동합니다.
+                </p>
+              </div>
+
+              <div className="space-y-3.5 pt-2">
+                <div className="space-y-1 text-left">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">
+                    Supabase Project URL (API 주소)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="https://your-project-ref.supabase.co"
+                    value={modalUrl}
+                    onChange={(e) => setModalUrl(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
+                  <span className="text-[9px] text-slate-400 font-medium">예: https://abcdefghijklm.supabase.co</span>
+                </div>
+
+                <div className="space-y-1 text-left">
+                  <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">
+                    Supabase Anon Public API Key (공개 키)
+                  </label>
+                  <textarea
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    rows={3}
+                    value={modalKey}
+                    onChange={(e) => setModalKey(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
+                  />
+                  <span className="text-[9px] text-slate-400 font-medium">Supabase 프로젝트의 Settings - API 메뉴에서 anon public key를 복사해 붙여넣으세요.</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs font-semibold leading-none">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold text-slate-500">현재 상태:</span>
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-amber-500 animate-pulse'}`} />
+                    <span className={isSupabaseConfigured ? 'text-emerald-600 font-extrabold' : 'text-amber-500 font-extrabold'}>
+                      {isSupabaseConfigured ? '클라우드 DB 연동 완료' : '로컬 모드 (미연동)'}
+                    </span>
+                  </div>
+                </div>
+                {isSupabaseConfigured && (
+                  <button
+                    onClick={handleResetSupabaseConfig}
+                    className="text-[9px] font-black text-rose-500 hover:text-rose-600 cursor-pointer"
+                  >
+                    연동 초기화
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => setShowSupabaseModal(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl cursor-pointer text-center"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveSupabaseConfig}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-[11px] rounded-xl cursor-pointer text-center shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all"
+                >
+                  동기화 저장 및 적용
                 </button>
               </div>
             </motion.div>
