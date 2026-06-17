@@ -262,7 +262,7 @@ export default function App() {
                 Navigation (카테고리)
               </p>
               <nav className="space-y-1">
-                {(['All', '공지', '자유', '정보', '질문'] as const).map((cat) => {
+                {(['All', '공지', '자유', '카통', '질문'] as const).map((cat) => {
                   const isActive = activeTab === 'board' && selectedCategory === cat;
                   const label = cat === 'All' ? 'All Discussions' : cat;
                   const count = getCategoryCount(cat);
