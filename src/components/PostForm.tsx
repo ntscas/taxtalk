@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Post, AuthUser, Category, parseCategoryAndTitle, buildTitleWithCategory } from '../types';
 import { dbService } from '../supabaseClient';
-import { ChevronLeft, Edit3, Save, Compass } from 'lucide-react';
+import { ChevronLeft, Edit3, Save, Compass, LogIn, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PostFormProps {
@@ -14,9 +14,10 @@ interface PostFormProps {
   currentUser: AuthUser | null;
   onSuccess: () => void;
   onCancel: () => void;
+  onLoginRedirect?: () => void;
 }
 
-export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel }: PostFormProps) {
+export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel, onLoginRedirect }: PostFormProps) {
   const parsed = postToEdit ? parseCategoryAndTitle(postToEdit.title) : { category: '자유' as Category, title: '' };
   
   const [category, setCategory] = useState<Category>(parsed.category);
@@ -25,6 +26,7 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
   const [nickname, setNickname] = useState('익명');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hideAnonymousBanner, setHideAnonymousBanner] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +98,34 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel 
         {error && (
           <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-100">
             {error}
+          </div>
+        )}
+
+        {!currentUser && !postToEdit && !hideAnonymousBanner && (
+          <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3" id="anon-choice-banner">
+            <div className="flex items-center gap-2">
+              <span className="text-sm select-none">💡</span>
+              <h4 className="text-[11px] font-black text-slate-800">로그인 없이 글쓰기를 진행하시겠습니까?</h4>
+            </div>
+            <div className="flex gap-2">
+              {onLoginRedirect && (
+                <button
+                  type="button"
+                  onClick={onLoginRedirect}
+                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-extrabold text-[10px] text-white rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                >
+                  <LogIn className="w-2.5 h-2.5" />
+                  <span>3초 로그인</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setHideAnonymousBanner(true)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition-all cursor-pointer"
+              >
+                익명으로 쓰기
+              </button>
+            </div>
           </div>
         )}
 
