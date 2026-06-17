@@ -133,7 +133,7 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel,
         <div className="space-y-2">
           <label className="block text-xs font-bold text-brand-text">카테고리</label>
           <div className="flex flex-wrap gap-2">
-            {(['공지', '자유', '정보', '질문'] as Category[]).map((cat) => (
+            {(['공지', '자유', '카통', '질문'] as Category[]).map((cat) => (
               <button
                 key={cat}
                 type="button"
