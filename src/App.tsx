@@ -31,7 +31,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Download
+  Download,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -48,6 +49,7 @@ export default function App() {
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [showInstallModal, setShowInstallModal] = useState<boolean>(false);
   const [isInIframe, setIsInIframe] = useState<boolean>(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState<boolean>(false);
 
   // Check if already running as standalone PWA
   useEffect(() => {
@@ -567,6 +569,7 @@ export default function App() {
                           fetchPosts();
                         }}
                         onCancel={() => setBoardView('list')}
+                        onLoginRedirect={() => setActiveTab('profile')}
                       />
                     ) : boardView === 'edit' && postToEdit ? (
                       (currentUser || dbService.getMyAnonAuthorIds().includes(postToEdit.author_id)) ? (
@@ -578,6 +581,7 @@ export default function App() {
                             fetchPosts();
                           }}
                           onCancel={() => setBoardView('list')}
+                          onLoginRedirect={() => setActiveTab('profile')}
                         />
                       ) : (
                         <div className="bg-brand-card p-8 rounded-3xl text-center max-w-md mx-auto space-y-4 border border-brand-border">
