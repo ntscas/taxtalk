@@ -69,6 +69,18 @@ function withTimeout(promise: any, timeoutMs = 2800): Promise<any> {
   });
 }
 
+function getClientDeviceUUID(): string {
+  let id = localStorage.getItem('supabase_anon_device_uuid');
+  if (!id) {
+    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+    localStorage.setItem('supabase_anon_device_uuid', id);
+  }
+  return id;
+}
+
 // Helper to manage LocalStorage database fallback
 const LOCAL_STORAGE_KEY = 'supabase_board_fallback_db';
 
@@ -801,22 +813,27 @@ export const dbService = {
   async createAnonymousPost(title: string, content: string, nickname: string): Promise<{ success: boolean; data?: Post; error?: string }> {
     let finalNickname = nickname.trim() || '익명';
     if (isSupabaseConfigured && supabase) {
+      let userId = '';
       try {
-        let userId = '';
         const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
         if (authError || !authData.user) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             userId = session.user.id;
           } else {
-            throw new Error(authError?.message || '익명 로그인에 실패했습니다.');
+            throw new Error(authError?.message || '익명 인증 토큰을 받지 못했습니다.');
           }
         } else {
           userId = authData.user.id;
         }
+      } catch (authErr: any) {
+        console.warn('[Supabase] Anonymous auth disabled or failed. Proceeding with robust device UUID fallback:', authErr);
+        userId = getClientDeviceUUID();
+      }
 
+      try {
         // Upsert profile with nickname
-        await supabase
+        const { error: profileError } = await supabase
           .from('tax_profiles')
           .upsert({
             id: userId,
@@ -826,12 +843,22 @@ export const dbService = {
             updated_at: new Date().toISOString()
           });
 
+        if (profileError) {
+          throw new Error(`사용자 프로필 테이블(tax_profiles) 등록 실패: ${profileError.message}`);
+        }
+
         this.registerMyAnonAuthorId(userId);
-        return this.createPost(title, content, userId);
-      } catch (err: any) {
-        console.error('Anonymous write failed, falling back to LocalStorage:', err);
+
+        const result = await this.createPost(title, content, userId);
+        if (result.success) {
+          return result;
+        } else {
+          throw new Error(result.error || '게시글 테이블(tax_posts) 저장 실패');
+        }
+      } catch (dbErr: any) {
+        console.error('[Supabase] Cloud raw insert failed. Logging to local storage as fallback:', dbErr);
         const db = getLocalDB();
-        const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+        const fakeUserId = userId || 'anon_' + Math.random().toString(36).substr(2, 9);
         const newPost: Post = {
           id: 'post_' + Math.random().toString(36).substr(2, 9),
           title,
@@ -846,10 +873,10 @@ export const dbService = {
         saveLocalDB(db);
         this.registerMyAnonAuthorId(fakeUserId);
         
-        const isAnonDisabled = err?.message?.includes('disabled') || err?.status === 422 || String(err).includes('disabled');
+        const isAnonDisabled = dbErr?.message?.includes('violates row-level security') || String(dbErr).includes('row-level');
         const customErrorMsg = isAnonDisabled
-          ? '익명 게시글을 클라우드에 등록하지 못했습니다.\n\n[원인 및 해결 방법]\n현재 Supabase 프로젝트의 익명(Anonymous) 로그인 연동이 비활성화되어 있습니다.\n\nSupabase 프로젝트 대시보드 -> Authentication -> Providers -> Anonymous 상세 설정을 "Enable Anonymous Sign-ins"로 활성화(On) 하시면 실시간 클라우드 글쓰기가 즉시 가능해집니다!\n\n(참고: 지금 작성한 글은 데이터 유실 방지를 위해 현재 브라우저에 임시로 보관되었습니다.)'
-          : `클라우드 익명 저장 실패: ${err?.message || '네트워크 오류'}\n(현재 브라우저에 임시 저장되었습니다)`;
+          ? '클라우드 DB 저장 실패 (보안 정책 차단)\n\n[원인]\n현재 사용 중이신 Supabase 프로젝트의 고유 보안 설정(Row Level Security, RLS) 때문에 비회원의 직접 글 작성이 차단되고 있습니다.\n\n[해결 방법]\n하단의 "데이터베이스 연동 가이드" 안내창에 있는 [익명/unauthenticated 사용자 글쓰기를 허용하기 위한 추가 RLS SQL 정책] 구문을 복사한 후, 본인의 Supabase SQL Editor에 입력하고 실행(Run) 하시면 즉각적인 클라우드 글쓰기가 허용됩니다!'
+          : `클라우드 DB 저장 실패: ${dbErr?.message || '네트워크 오류'}\n(현재 작성된 글은 유실 방지를 위해 로컬 브라우저 세션에 백업 보관되었습니다)`;
 
         return { success: false, error: customErrorMsg, data: newPost };
       }
@@ -866,7 +893,7 @@ export const dbService = {
         created_at: new Date().toISOString(),
         views: 0
       };
-      db.posts.push(newPost);
+      db.posts.unshift(newPost);
       saveLocalDB(db);
       this.registerMyAnonAuthorId(fakeUserId);
       return { success: true, data: newPost };
@@ -876,21 +903,27 @@ export const dbService = {
   async createAnonymousComment(postId: string, content: string, nickname: string): Promise<{ success: boolean; data?: Comment; error?: string }> {
     let finalNickname = nickname.trim() || '익명';
     if (isSupabaseConfigured && supabase) {
+      let userId = '';
       try {
-        let userId = '';
         const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
         if (authError || !authData.user) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             userId = session.user.id;
           } else {
-            throw new Error(authError?.message || '익명 로그인 실패');
+            throw new Error(authError?.message || '익명 인증 토큰을 받지 못했습니다.');
           }
         } else {
           userId = authData.user.id;
         }
+      } catch (authErr: any) {
+        console.warn('[Supabase] Anonymous auth disabled or failed for comment. Proceeding with robust device UUID fallback:', authErr);
+        userId = getClientDeviceUUID();
+      }
 
-        await supabase
+      try {
+        // Upsert profile with nickname
+        const { error: profileError } = await supabase
           .from('tax_profiles')
           .upsert({
             id: userId,
@@ -900,12 +933,22 @@ export const dbService = {
             updated_at: new Date().toISOString()
           });
 
+        if (profileError) {
+          throw new Error(`사용자 프로필 테이블(tax_profiles) 등록 실패: ${profileError.message}`);
+        }
+
         this.registerMyAnonAuthorId(userId);
-        return this.createComment(postId, content, userId);
-      } catch (err: any) {
-        console.error('Anonymous comment failed, falling back to LocalStorage:', err);
+
+        const result = await this.createComment(postId, content, userId);
+        if (result.success) {
+          return result;
+        } else {
+          throw new Error(result.error || '댓글 테이블(tax_comments) 저장 실패');
+        }
+      } catch (dbErr: any) {
+        console.error('[Supabase] Cloud raw comment insert failed. Logging to local storage as fallback:', dbErr);
         const db = getLocalDB();
-        const fakeUserId = 'anon_' + Math.random().toString(36).substr(2, 9);
+        const fakeUserId = userId || 'anon_' + Math.random().toString(36).substr(2, 9);
         const newComment: Comment = {
           id: 'comment_' + Math.random().toString(36).substr(2, 9),
           post_id: postId,
@@ -919,10 +962,10 @@ export const dbService = {
         saveLocalDB(db);
         this.registerMyAnonAuthorId(fakeUserId);
         
-        const isAnonDisabled = err?.message?.includes('disabled') || err?.status === 422 || String(err).includes('disabled');
+        const isAnonDisabled = dbErr?.message?.includes('violates row-level security') || String(dbErr).includes('row-level');
         const customErrorMsg = isAnonDisabled
-          ? '익명 댓글을 클라우드에 등록하지 못했습니다.\n\n[원인 및 해결 방법]\n현재 Supabase 프로젝트의 익명(Anonymous) 로그인 연동이 비활성화되어 있습니다.\n\nSupabase 프로젝트 대시보드 -> Authentication -> Providers -> Anonymous 상세 설정을 "Enable Anonymous Sign-ins"로 활성화(On) 하시면 실시간 클라우드 댓글 쓰기가 즉시 가능해집니다!\n\n(참고: 지금 작성한 댓글은 데이터 유실 방지를 위해 현재 브라우저에 임시로 보관되었습니다.)'
-          : `클라우드 익명 댓글 저장 실패: ${err?.message || '네트워크 오류'}\n(현재 브라우저에 임시 저장되었습니다)`;
+          ? '클라우드 DB 댓글 저장 실패 (보안 정책 차단)\n\n[원인]\n현재 사용 중이신 Supabase 프로젝트의 고유 보안 설정(Row Level Security, RLS) 때문에 비회원의 직접 댓글 작성이 차단되고 있습니다.\n\n[해결 방법]\n하단의 "데이터베이스 연동 가이드" 안내창에 있는 [익명/unauthenticated 사용자 댓글 쓰기를 허용하기 위한 추가 RLS SQL 정책] 구문을 복사한 후, 본인의 Supabase SQL Editor에 입력하고 실행(Run) 하시면 즉각적인 클라우드 댓글 쓰기가 허용됩니다!'
+          : `클라우드 DB 댓글 저장 실패: ${dbErr?.message || '네트워크 오류'}\n(현재 작성된 댓글은 유실 방지를 위해 로컬 브라우저 세션에 백업 보관되었습니다)`;
 
         return { success: false, error: customErrorMsg, data: newComment };
       }
