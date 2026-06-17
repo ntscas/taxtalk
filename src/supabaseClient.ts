@@ -27,41 +27,16 @@ function cleanSupabaseUrl(url: string): string {
   return cleaned;
 }
 
-// Support dynamic configurations stored in LocalStorage for hosted environments like GitHub Pages!
-const customSupabaseUrl = typeof window !== 'undefined' ? (localStorage.getItem('custom_supabase_url') || '') : '';
-const customSupabaseAnonKey = typeof window !== 'undefined' ? (localStorage.getItem('custom_supabase_anon_key') || '') : '';
+// Hardcoded Supabase Project URL and Anon Public Key for seamless GitHub deployment and Cloud DB linkage!
+export const supabaseUrl = 'https://yvxjcsoiqekjkckcluql.supabase.co';
+export const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eGpjc29pcWVramtja2NsdXFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NzUxOTAsImV4cCI6MjA5NjA1MTE5MH0.NG6tg3HAN7ZfW-sr8ogIu1sjvCj80k7WpckR0bePwec';
 
-// Environment variables checks or localStorage overrides to determine if we should use Cloud DB or Local fallback
-const supabaseUrlRaw = 
-  customSupabaseUrl || 
-  (import.meta as any).env.VITE_SUPABASE_URL || 
-  (import.meta as any).env.SUPABASE_URL || 
-  '';
-export const supabaseUrl = cleanSupabaseUrl(supabaseUrlRaw);
-
-const supabaseAnonKey = cleanEnvValue(
-  customSupabaseAnonKey || 
-  (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 
-  (import.meta as any).env.SUPABASE_ANON_KEY || 
-  ''
-);
-
-export let isSupabaseConfigured = 
-  supabaseUrl.trim() !== '' && 
-  supabaseAnonKey.trim() !== '' && 
-  !supabaseUrl.includes('YOUR_SUPABASE') &&
-  !supabaseAnonKey.includes('YOUR_SUPABASE');
+export const isSupabaseConfigured = true;
 
 // Instantiating the real client-side Supabase client directly
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-if (isSupabaseConfigured) {
-  console.log('[Supabase] 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
-} else {
-  console.log('[Supabase] 로컬 전용 가상 데이터베이스(LocalStorage) 연동 모드 실행 중');
-}
+console.log('[Supabase] 클라우드 실시간 데이터베이스 연동 성공! URL:', supabaseUrl);
 
 // Helper to implement queries with timeout to handle sleeping free-tier database instantly
 function withTimeout(promise: any, timeoutMs = 2800): Promise<any> {
