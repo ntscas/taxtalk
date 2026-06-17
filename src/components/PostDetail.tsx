@@ -179,6 +179,19 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
       {/* Main Post Card */}
       <div className="bg-brand-card rounded-3xl border border-brand-border p-8 shadow-xs space-y-6">
         
+        {/* Local-only friendly notification banner */}
+        {(post as any).isLocalOnly && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-start gap-3 text-amber-800" id="local-post-banner">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-black text-amber-900">로컬 기기 임시 등록 상태</h4>
+              <p className="text-[11px] font-semibold text-amber-700/90 leading-relaxed">
+                이 글은 현재 로그인 과정 없이 익명으로 임시 작성되어, 클라우드 DB에 실시간 연동되지 않고 내 브라우저(기기) 상에만 보존되고 있습니다. 다른 사람들과 정상적으로 소통하고 글을 클라우드에 공유하려면 상단의 <b>로그인/가입하기</b>를 진행해 주세요!
+              </p>
+            </div>
+          </div>
+        )}
+        
         {/* Post Metadata Header */}
         <div className="border-b border-brand-border/60 pb-6">
           <div className="flex items-center gap-2 mb-3">
