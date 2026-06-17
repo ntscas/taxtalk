@@ -240,9 +240,9 @@ export default function App() {
               <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse">
                 <Zap className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
               </div>
-              <div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-bold text-emerald-400 tracking-tight leading-tight">카더라 통신(카통)</span>
                 <h1 className="text-base font-extrabold text-white tracking-tight leading-none">Tax Talk</h1>
-                <p className="text-[9px] text-brand-sidebar-muted font-bold mt-1.5 uppercase tracking-widest">Connect Board</p>
               </div>
             </div>
 
