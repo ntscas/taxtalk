@@ -17,9 +17,33 @@ export default function ConfigGuide() {
     });
   }, []);
 
-  const sqlCode = `-- 1. 사용자 프로필 테이블 생성 (public schema)
+  const sqlCode = `-- [기존 DB 외래키 제약조건 제거 핫픽스 - 익명/비회원 실시간 글쓰기 오류 완벽 방지]
+-- 이 스크립트는 tax_profiles 테이블의 어떠한 외래키(auth.users 연동 등)도 자동으로 찾아내 삭제하는 무결성 핫픽스입니다.
+-- 아래 SQL을 복사하여 Supabase SQL Editor에서 실행하시면 즉시 익명 클라우드 저장이 영구 가동됩니다!
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT tc.constraint_name 
+        FROM information_schema.table_constraints AS tc 
+        JOIN information_schema.key_column_usage AS kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' 
+          AND tc.table_name = 'tax_profiles'
+          AND kcu.column_name = 'id'
+    ) LOOP
+        EXECUTE 'ALTER TABLE public.tax_profiles DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+    END LOOP;
+END $$;
+
+-- (선택 사항: 만약 위 구문이 생소하다면 아래 기존 1줄 명령도 동일한 역할을 시도합니다)
+-- ALTER TABLE public.tax_profiles DROP CONSTRAINT IF EXISTS tax_profiles_id_fkey;
+
+-- 1. 사용자 프로필 테이블 생성 (public schema)
 create table public.tax_profiles (
-  id uuid references auth.users on delete cascade primary key,
+  id uuid primary key, -- (익명 및 비회원 글쓰기 완벽 호환을 위해 auth.users 직접 외래키 제약조건제외)
   name text not null,
   bio text,
   avatar_url text,
