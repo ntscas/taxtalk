@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type Category = '공지' | '자유' | '정보' | '질문';
+export type Category = '공지' | '자유' | '카통' | '질문';
 
 export function parseCategoryAndTitle(title: string): { category: Category; title: string } {
-  const match = title.match(/^\[(공지|자유|정보|질문)\]\s*(.*)$/);
+  const match = title.match(/^\[(공지|자유|정보|카통|질문)\]\s*(.*)$/);
   if (match) {
+    let cat = match[1];
+    if (cat === '정보') cat = '카통';
     return {
-      category: match[1] as Category,
+      category: cat as Category,
       title: match[2].trim()
     };
   }
@@ -22,7 +24,7 @@ export function parseCategoryAndTitle(title: string): { category: Category; titl
 
 export function buildTitleWithCategory(category: Category, title: string): string {
   // Prevent duplicate prefixes if editing
-  const cleaned = title.replace(/^\[(공지|자유|정보|질문)\]\s*/, '');
+  const cleaned = title.replace(/^\[(공지|자유|정보|카통|질문)\]\s*/, '');
   return `[${category}] ${cleaned.trim()}`;
 }
 
