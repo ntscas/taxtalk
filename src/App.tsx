@@ -316,17 +316,13 @@ export default function App() {
                 </button>
 
                 <div
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    isSupabaseConfigured 
-                      ? 'text-emerald-400 bg-emerald-500/5' 
-                      : 'text-rose-400 bg-rose-500/5'
-                  }`}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-300"
                 >
                   <span className="flex items-center gap-2">
-                    <Database className="w-4 h-4 text-slate-400" />
-                    <span>{isSupabaseConfigured ? '실시간 클라우드 DB 연동됨' : '로컬 모드로 임시 사용'}</span>
+                    <Database className="w-4 h-4 text-emerald-400" />
+                    <span>클라우드 DB: 연결됨</span>
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 animate-pulse'}`} />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                 </div>
 
                 {!isStandalone && (
