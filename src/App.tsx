@@ -507,19 +507,7 @@ export default function App() {
               activeTab === 'board' && boardView === 'list' ? 'hidden lg:block' : 'block'
             }`}
           >
-            {/* Top-right "회원가입 및 로그인 ➔" persistent block for unauthenticated users */}
-            {!currentUser && activeTab !== 'profile' && (
-              <div className="absolute top-4 right-4 sm:top-6 sm:right-6 lg:top-8 lg:right-8 z-30">
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-primary hover:bg-brand-primary-hover text-[#111] font-black text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-[0.98] hover:shadow-lg"
-                  id="top-right-login-btn"
-                >
-                  <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>회원가입 및 로그인 ➔</span>
-                </button>
-              </div>
-            )}
+
 
             <AnimatePresence mode="wait">
               <motion.div
