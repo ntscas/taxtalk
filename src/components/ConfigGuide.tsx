@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Terminal, ExternalLink, Database, LifeBuoy } from 'lucide-react';
-import { dbService, isSupabaseConfigured } from '../supabaseClient';
+import { dbService, isSupabaseConfigured, isUserConfigured } from '../supabaseClient';
 
 export default function ConfigGuide() {
   const [copied, setCopied] = useState(false);
@@ -177,11 +177,18 @@ create policy "본인 댓글만 삭제" on public.tax_comments
       </div>
 
       <div className="mt-6 pt-5 border-t border-brand-border/60 flex items-start gap-2.5 text-xs text-brand-muted-text font-semibold">
-        {isRealDb ? (
+        {isUserConfigured ? (
           <>
             <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shrink-0 mt-1.5" />
             <p className="leading-relaxed">
-              <strong className="text-brand-text font-serif">현재 상태:</strong> <span className="text-emerald-600 font-bold">Supabase 실시간 클라우드 DB 연동 완료!</span> 실제 Supabase 인프라에 직접 연결되어 실시간 회원가입, 로그인, 게시글 게시 및 프로필 관리 서비스가 완벽하게 동기화되어 가동 중입니다.
+              <strong className="text-brand-text font-serif">현재 상태:</strong> <span className="text-emerald-600 font-bold">개인 Supabase 클라우드 DB 연동 완료!</span> 설정하신 개별 환경변수(VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)가 완벽하게 수신되어, 본인 소유의 전용 실시간 클라우드 DB에 직접 안전하게 동기화가 이루어지고 있습니다.
+            </p>
+          </>
+        ) : isRealDb ? (
+          <>
+            <div className="w-2.5 h-2.5 bg-brand-primary rounded-full animate-pulse shrink-0 mt-1.5" />
+            <p className="leading-relaxed">
+              <strong className="text-brand-text font-serif">현재 상태:</strong> <span className="text-brand-primary font-bold">공용 실시간 데모 클라우드 DB 연동 중!</span> 아직 맞춤 설정이 활성화되지 않아 기본 공용 클라우드 DB에 동기화가 이루어지고 있습니다. 상단의 단계들을 마쳐 본인의 Supabase 환경변수를 입력하시면 나만의 전용 프라이빗 DB로의 전환이 즉시 완료됩니다!
             </p>
           </>
         ) : (
