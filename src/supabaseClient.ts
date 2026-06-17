@@ -557,7 +557,18 @@ export const dbService = {
           };
         });
 
-        return posts;
+        // Merge local-only posts so the user doesn't feel posts are missing
+        const localDb = getLocalDB();
+        const localPosts = (localDb.posts || []).map((p: any) => ({ ...p, isLocalOnly: true }));
+        
+        // Avoid adding local posts that might already have been successfully uploaded to cloud
+        const cloudPostIds = new Set(posts.map(p => p.id));
+        const filteredLocalPosts = localPosts.filter((p: any) => !cloudPostIds.has(p.id));
+
+        const mergedPosts = [...filteredLocalPosts, ...posts];
+        mergedPosts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return mergedPosts;
       } catch (err) {
         console.error('Direct Client fetch posts error:', err);
         return getLocalDB().posts;
@@ -743,7 +754,17 @@ export const dbService = {
           };
         });
 
-        return comments;
+        // Merge local-only comments so the anonymous user sees their own comments
+        const localDb = getLocalDB();
+        const localComments = (localDb.comments || []).filter((c: any) => c.post_id === postId);
+        
+        const cloudCommentIds = new Set(comments.map(c => c.id));
+        const filteredLocalComments = localComments.filter((c: any) => !cloudCommentIds.has(c.id));
+
+        const mergedComments = [...comments, ...filteredLocalComments];
+        mergedComments.sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        return mergedComments;
       } catch (err) {
         console.error('Direct Client fetch comments error:', err);
         return getLocalDB().comments.filter(c => c.post_id === postId);
