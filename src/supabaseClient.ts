@@ -834,7 +834,13 @@ export const dbService = {
         db.posts.unshift(newPost);
         saveLocalDB(db);
         this.registerMyAnonAuthorId(fakeUserId);
-        return { success: true, data: newPost };
+        
+        const isAnonDisabled = err?.message?.includes('disabled') || err?.status === 422 || String(err).includes('disabled');
+        const customErrorMsg = isAnonDisabled
+          ? '익명 게시글을 클라우드에 등록하지 못했습니다.\n\n[원인 및 해결 방법]\n현재 Supabase 프로젝트의 익명(Anonymous) 로그인 연동이 비활성화되어 있습니다.\n\nSupabase 프로젝트 대시보드 -> Authentication -> Providers -> Anonymous 상세 설정을 "Enable Anonymous Sign-ins"로 활성화(On) 하시면 실시간 클라우드 글쓰기가 즉시 가능해집니다!\n\n(참고: 지금 작성한 글은 데이터 유실 방지를 위해 현재 브라우저에 임시로 보관되었습니다.)'
+          : `클라우드 익명 저장 실패: ${err?.message || '네트워크 오류'}\n(현재 브라우저에 임시 저장되었습니다)`;
+
+        return { success: false, error: customErrorMsg, data: newPost };
       }
     } else {
       const db = getLocalDB();
@@ -901,7 +907,13 @@ export const dbService = {
         db.comments.push(newComment);
         saveLocalDB(db);
         this.registerMyAnonAuthorId(fakeUserId);
-        return { success: true, data: newComment };
+        
+        const isAnonDisabled = err?.message?.includes('disabled') || err?.status === 422 || String(err).includes('disabled');
+        const customErrorMsg = isAnonDisabled
+          ? '익명 댓글을 클라우드에 등록하지 못했습니다.\n\n[원인 및 해결 방법]\n현재 Supabase 프로젝트의 익명(Anonymous) 로그인 연동이 비활성화되어 있습니다.\n\nSupabase 프로젝트 대시보드 -> Authentication -> Providers -> Anonymous 상세 설정을 "Enable Anonymous Sign-ins"로 활성화(On) 하시면 실시간 클라우드 댓글 쓰기가 즉시 가능해집니다!\n\n(참고: 지금 작성한 댓글은 데이터 유실 방지를 위해 현재 브라우저에 임시로 보관되었습니다.)'
+          : `클라우드 익명 댓글 저장 실패: ${err?.message || '네트워크 오류'}\n(현재 브라우저에 임시 저장되었습니다)`;
+
+        return { success: false, error: customErrorMsg, data: newComment };
       }
     } else {
       const db = getLocalDB();
