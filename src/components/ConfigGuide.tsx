@@ -45,25 +45,28 @@ create table public.tax_comments (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 4. Row Level Security (RLS) 비활성화 혹은 테이블의 RLS 통과 설정
--- (개발 편의를 위해 일단 RLS 비활성화하거나, 모든 사용자가 읽고/로그인유저가 쓸 수 있도록 허용)
+-- 4. Row Level Security (RLS) 및 정책 설정
+-- (참고: 로그인 없이도 익명 글쓰기가 완벽하게 클라우드에 연동되도록 unauthenticated/anon 생성을 전면 허용한 정책입니다)
 alter table public.tax_profiles enable row level security;
 alter table public.tax_posts enable row level security;
 alter table public.tax_comments enable row level security;
 
--- 누구나 프로필을 조회할 수 있도록 RLS 정책 설정
+-- 누구나 프로필을 조회하거나 회원 가입 없이 생성을 허용합니다
 create policy "누구나 프로필 조회 가능" on public.tax_profiles
   for select using (true);
+
+create policy "누구나 프로필 생성 가능" on public.tax_profiles
+  for insert with check (true);
 
 create policy "본인 프로필만 수정 가능" on public.tax_profiles
   for all using (auth.uid() = id);
 
--- 누구나 게시글을 조회할 수 있도록 설정
+-- 누구나 게시글을 조회하거나 회원 가입 없이 게시할 수 있도록 허용합니다
 create policy "누구나 게시글 조회 가능" on public.tax_posts
   for select using (true);
 
-create policy "로그인 사용자만 게시글 생성" on public.tax_posts
-  for insert with check (auth.uid() = author_id);
+create policy "누구나 게시글 생성 가능" on public.tax_posts
+  for insert with check (true);
 
 create policy "본인 게시글만 수정/삭제" on public.tax_posts
   for update using (auth.uid() = author_id);
@@ -71,15 +74,21 @@ create policy "본인 게시글만 수정/삭제" on public.tax_posts
 create policy "본인 게시글만 삭제" on public.tax_posts
   for delete using (auth.uid() = author_id);
 
--- 누구나 댓글을 조회할 수 있도록 설정
+-- 누구나 댓글을 조회되거나 작성할 수 있도록 허용합니다
 create policy "누구나 댓글 조회 가능" on public.tax_comments
   for select using (true);
 
-create policy "로그인 사용자만 댓글 생성" on public.tax_comments
-  for insert with check (auth.uid() = author_id);
+create policy "누구나 댓글 생성 가능" on public.tax_comments
+  for insert with check (true);
 
 create policy "본인 댓글만 삭제" on public.tax_comments
   for delete using (auth.uid() = author_id);
+
+-- [초단기 해결 팁] 만약 위의 복잡한 RLS 보안 설정을 수동 제어하고 싶지 않으시다면,
+-- 아래 3문장을 실행해 RLS 자체를 가볍게 꺼주시면 즉시 클라우드에 비회원 무제한 글쓰기가 가동됩니다!
+-- alter table public.tax_profiles disable row level security;
+-- alter table public.tax_posts disable row level security;
+-- alter table public.tax_comments disable row level security;
 `;
 
   const copyToClipboard = () => {
