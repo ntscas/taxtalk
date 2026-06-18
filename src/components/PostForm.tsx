@@ -72,7 +72,8 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel,
   };
 
   return (
-    <div className="bg-brand-card rounded-3xl border border-brand-border p-8 shadow-xs space-y-6" id="post-form-root">
+    <div className="pt-4 md:pt-6 lg:pt-8" id="post-form-wrapper">
+      <div className="bg-brand-card rounded-3xl border border-brand-border p-8 shadow-xs space-y-6" id="post-form-root">
       
       {/* Detail Navigate Back Header */}
       <div className="flex items-center justify-between border-b border-brand-border/60 pb-5">
@@ -211,6 +212,7 @@ export default function PostForm({ postToEdit, currentUser, onSuccess, onCancel,
           </button>
         </div>
       </form>
+      </div>
     </div>
   );
 }
