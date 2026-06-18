@@ -128,38 +128,40 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
   const isAuthor = (currentUser && currentUser.id === post.author_id) || dbService.getMyAnonAuthorIds().includes(post.author_id);
 
   return (
-    <div className="space-y-6" id={`post-detail-${post.id}`}>
+    <div className="space-y-4" id={`post-detail-${post.id}`}>
       
       {/* Navigation Header */}
-      <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-[#f3f5f8] py-3 mb-4 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 border-b border-brand-border/40 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="lg:hidden flex items-center gap-1 text-sm font-semibold text-brand-text hover:text-brand-primary transition-colors bg-brand-card px-3.5 py-2 rounded-xl border border-brand-border shadow-xs cursor-pointer"
+          className="lg:hidden flex items-center gap-1 text-xs font-semibold text-brand-text hover:text-brand-primary transition-colors bg-brand-card px-2.5 py-1.5 rounded-xl border border-brand-border shadow-xs cursor-pointer"
           id="btn-back-to-list"
         >
-          <ChevronLeft className="w-4.5 h-4.5" />
+          <ChevronLeft className="w-4 h-4" />
           <span>목록으로</span>
         </button>
-        <div className="hidden lg:block" /> {/** Spacer if desktop */}
+        <div className="hidden lg:block text-xs font-semibold text-brand-muted-text">
+          게시글 상세보기
+        </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto">
           {isAuthor && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => onEdit(post)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-secondary hover:bg-brand-hover text-brand-text font-semibold text-xs rounded-xl border border-brand-border cursor-pointer transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-brand-secondary hover:bg-brand-hover text-brand-text font-semibold text-xs rounded-xl border border-brand-border cursor-pointer transition-colors"
                 id="btn-edit-post"
               >
-                <Edit3 className="w-3.5 h-3.5 text-brand-primary" />
+                <Edit3 className="w-3 relative -top-[0.5px] text-brand-primary" />
                 <span>수정</span>
               </button>
               <button
                 onClick={handlePostDelete}
                 disabled={isDeleting}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-red-50 hover:bg-red-100/80 text-red-700 font-semibold text-xs rounded-xl border border-red-100 cursor-pointer transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100/80 text-red-700 font-semibold text-xs rounded-xl border border-red-100 cursor-pointer transition-colors"
                 id="btn-delete-post"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3" />
                 <span>{isDeleting ? '삭제중' : '삭제'}</span>
               </button>
             </div>
@@ -167,11 +169,11 @@ export default function PostDetail({ post, onBack, onEdit, currentUser, onDelete
 
           <button
             onClick={onBack}
-            className="flex items-center justify-center p-2 bg-brand-card hover:bg-brand-secondary text-brand-text rounded-xl border border-brand-border cursor-pointer transition-colors shadow-xs"
+            className="flex items-center justify-center p-1.5 bg-brand-card hover:bg-brand-secondary text-brand-text rounded-xl border border-brand-border cursor-pointer transition-colors shadow-xs"
             id="btn-close-x"
             title="목록으로"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
