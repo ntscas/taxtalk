@@ -503,7 +503,7 @@ export default function App() {
           {/* Column 3: Active Detail/Form view panel.
               Always show on desktop. On mobile, show when view is not list, or when activeTab is profile or guide. */}
           <main 
-            className={`flex-1 h-full bg-[#f3f5f8] overflow-y-auto p-4 md:p-6 lg:p-8 relative ${
+            className={`flex-1 h-full bg-[#f3f5f8] overflow-y-auto pt-0 px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 relative ${
               activeTab === 'board' && boardView === 'list' ? 'hidden lg:block' : 'block'
             }`}
           >
@@ -574,19 +574,21 @@ export default function App() {
                       )
                     ) : (
                       /* Empty list state template on board */
-                      <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-brand-card rounded-3xl border border-brand-border shadow-xs">
-                        <Bookmark className="w-12 h-12 text-brand-muted/70 mb-4 animate-bounce" />
-                        <h2 className="text-lg font-bold text-brand-text font-serif">열람할 내용이 없습니다</h2>
-                        <p className="text-xs text-brand-muted mt-1.5 max-w-xs mx-auto">
-                          좌측 목록에서 포스팅을 하나 클릭하시거나 새 이야기를 게시해 보세요!
-                        </p>
+                      <div className="pt-4 md:pt-6 lg:pt-8 h-full">
+                        <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-brand-card rounded-3xl border border-brand-border shadow-xs">
+                          <Bookmark className="w-12 h-12 text-brand-muted/70 mb-4 animate-bounce" />
+                          <h2 className="text-lg font-bold text-brand-text font-serif">열람할 내용이 없습니다</h2>
+                          <p className="text-xs text-brand-muted mt-1.5 max-w-xs mx-auto">
+                            좌측 목록에서 포스팅을 하나 클릭하시거나 새 이야기를 게시해 보세요!
+                          </p>
+                        </div>
                       </div>
                     )}
                   </>
                 )}
 
                 {activeTab === 'profile' && (
-                  <div className="space-y-6">
+                  <div className="space-y-6 pt-4 md:pt-6 lg:pt-8">
                     {currentUser ? (
                       <UserProfile 
                         currentUser={currentUser} 
@@ -605,7 +607,9 @@ export default function App() {
                 )}
 
                 {activeTab === 'guide' && (
-                  <ConfigGuide />
+                  <div className="pt-4 md:pt-6 lg:pt-8 animate-fade-in">
+                    <ConfigGuide />
+                  </div>
                 )}
               </motion.div>
             </AnimatePresence>
